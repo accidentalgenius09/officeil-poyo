@@ -1,0 +1,82 @@
+# Officeil Poyo?
+
+Track your monthly office visits — mark days in or out, plan leave, add holidays, set visit goals, and sync everything to MongoDB Atlas.
+
+## Features
+
+- **Monthly calendar** — click a day to toggle in office / not in office (unmarked counts as not in office)
+- **Goal tracking** — see office days vs your monthly target and remaining working days
+- **User profile** — name, email, role/team, and office-day goal
+- **Go to office daily?** — when enabled, the goal becomes every working day (leave & holidays excluded)
+- **Leave** — mark leave ranges in advance (shown in red; excluded from working days)
+- **Holiday calendar** — add named holidays so they don’t count as working days
+- **MongoDB sync** — attendance, profile, leave, and holidays persist in Atlas (with local cache fallback)
+
+## Tech stack
+
+- React 19 + TypeScript + Vite
+- Express API
+- MongoDB Atlas
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure MongoDB
+
+1. Create a free cluster in [MongoDB Atlas](https://cloud.mongodb.com/)
+2. Create a database user
+3. Under **Network Access**, allow your current IP (or `0.0.0.0/0` for local development)
+4. Copy `.env.example` to `.env`
+5. Paste your Atlas connection string into `MONGODB_URI`
+
+```env
+MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/office-visit-calendar?retryWrites=true&w=majority
+MONGODB_DB=office-visit-calendar
+PORT=3001
+```
+
+> If your IP changes, update **Network Access** in Atlas or the app will fall back to local cache.
+
+### 3. Run
+
+```bash
+npm run dev
+```
+
+This starts:
+
+- App: [http://localhost:5173](http://localhost:5173)
+- API: [http://localhost:3001](http://localhost:3001)
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start API + Vite together |
+| `npm run build` | Typecheck and production build |
+| `npm run preview` | Preview the production build |
+
+## Project structure
+
+```
+src/
+  components/     # Calendar, summary cards, settings panel
+  lib/            # Attendance logic + API client
+  App.tsx         # Main app
+server/
+  index.js        # Express + MongoDB API
+```
+
+## Usage
+
+1. Open settings (gear, bottom-right)
+2. Fill in your **profile** and set office days (or turn on **Go to office daily**)
+3. Add **leave** and **holidays** as needed
+4. Click calendar days to mark office attendance
+
+Data saves to MongoDB automatically. If the database is unreachable, changes stay in local cache until the connection is restored.

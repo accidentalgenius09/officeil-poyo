@@ -1,0 +1,44 @@
+:root {
+  --bg-top: #dfe8e4;
+  --bg-bottom: #c5d2ce;
+  --surface: rgba(247, 250, 248, 0.88);
+  --surface-solid: #f7faf8;
+  --ink: #142a24;
+  --ink-soft: #4a635a;
+  --brand: #1b4d3e;
+  --brand-deep: #12362c;
+  --accent: #b8892d;
+  --accent-soft: #e8d5a8;
+  --muted-fill: #d5e0db;
+  --outline: #8aa399;
+  --today-ring: #1b4d3e;
+  --shadow: 0 18px 40px rgba(20, 42, 36, 0.12);
+  --radius: 18px;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Source Sans 3', 'Segoe UI', sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--bg-bottom);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font-family: inherit;
+}
