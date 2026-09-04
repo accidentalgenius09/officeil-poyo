@@ -1,0 +1,14 @@
+---
+description: Keep README.md updated whenever product or project behavior changes
+alwaysApply: true
+---
+
+# Update README on every change
+
+Whenever you add, remove, or change a user-facing feature, setup step, script, or project structure:
+
+1. Update `README.md` in the same change set (not a follow-up).
+2. Keep Features, Usage, Project structure, Setup, and Scripts accurate.
+3. Prefer short, concrete bullets that match how the app actually works.
+4. Do not invent features that are not implemented.
+5. If a change is internal-only with no user/docs impact, skip the README update.

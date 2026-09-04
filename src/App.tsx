@@ -19,6 +19,7 @@ import { SummaryCards } from './components/SummaryCards'
 import { CalendarGrid } from './components/CalendarGrid'
 import { SettingsFab, SettingsPanel } from './components/SettingsPanel'
 import { GamesConsole } from './components/games/GamesConsole'
+import { ThemeToggle } from './components/ThemeToggle'
 import './App.css'
 
 function App() {
@@ -178,6 +179,7 @@ function App() {
   return (
     <div className="app">
       <div className="app-bg" aria-hidden="true" />
+      <ThemeToggle />
       <main className="shell">
         <header className="brand">
           <h1 className="brand-mark">Officeil Poyo?</h1>
