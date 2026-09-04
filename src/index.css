@@ -13,9 +13,68 @@
   --outline: #8aa399;
   --today-ring: #1b4d3e;
   --shadow: 0 18px 40px rgba(20, 42, 36, 0.12);
+  --border: rgba(27, 77, 62, 0.12);
+  --border-strong: rgba(27, 77, 62, 0.2);
+  --overlay: rgba(20, 42, 36, 0.28);
+  --input-bg: #ffffff;
+  --panel-tint: rgba(27, 77, 62, 0.05);
+  --pick-bg: linear-gradient(145deg, #fbfcfb, #eef4f1);
+  --sudoku-cell: #f7faf8;
+  --sudoku-clue: #e7efe9;
+  --sudoku-selected: #e8d5a8;
+  --sudoku-conflict-bg: #f8e6e6;
+  --sudoku-pad: #eef4f1;
+  --sudoku-pad-hover: #e0ebe5;
+  --memory-front: #f3f7f5;
+  --leave-bg: #f2c8c8;
+  --leave-border: #c43c3c;
+  --leave-ink: #7a1818;
+  --holiday-ink: #5c4314;
+  --wfh-border: #a8b9b1;
+  --danger: #9b2c2c;
+  --on-brand: #f4faf7;
   --radius: 18px;
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'Source Sans 3', 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg-top: #12201b;
+  --bg-bottom: #0a1210;
+  --surface: rgba(22, 36, 31, 0.9);
+  --surface-solid: #16241f;
+  --ink: #e6f0eb;
+  --ink-soft: #9bb5aa;
+  --brand: #4dba92;
+  --brand-deep: #8fd4b8;
+  --accent: #d4a84b;
+  --accent-soft: #3d3420;
+  --muted-fill: #24352e;
+  --outline: #4a665a;
+  --today-ring: #4dba92;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  --border: rgba(143, 212, 184, 0.14);
+  --border-strong: rgba(143, 212, 184, 0.28);
+  --overlay: rgba(4, 10, 8, 0.55);
+  --input-bg: #1a2a24;
+  --panel-tint: rgba(143, 212, 184, 0.08);
+  --pick-bg: linear-gradient(145deg, #1a2c26, #14201c);
+  --sudoku-cell: #1a2a24;
+  --sudoku-clue: #223830;
+  --sudoku-selected: #4a3d1f;
+  --sudoku-conflict-bg: #3a2222;
+  --sudoku-pad: #223830;
+  --sudoku-pad-hover: #2c463c;
+  --memory-front: #1e3029;
+  --leave-bg: #4a2a2a;
+  --leave-border: #e07070;
+  --leave-ink: #f0c4c4;
+  --holiday-ink: #e8d5a8;
+  --wfh-border: #3d544a;
+  --danger: #f08080;
+  --on-brand: #0a1210;
+  color-scheme: dark;
 }
 
 *,
@@ -37,6 +96,7 @@ body {
   background: var(--bg-bottom);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
 button {

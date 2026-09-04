@@ -11,6 +11,7 @@ Track your monthly office visits — mark days in or out, plan leave, add holida
 - **Leave** — mark leave ranges in advance (shown in red; excluded from working days)
 - **Holiday calendar** — add named holidays so they don’t count as working days
 - **MongoDB sync** — attendance, profile, leave, and holidays persist in Atlas (with local cache fallback)
+- **Light / dark mode** — celestial toggle (top-right) switches themes; choice is saved in the browser and follows system preference on first visit
 - **Game console** — floating button above settings with quick break games:
   - **Sudoku** — unfinished boards save in the browser; finishing clears the save and starts a new shuffled puzzle
   - **Memory Match** — flip cards to find pairs
@@ -81,7 +82,7 @@ API routes are served from `api/index.js` (for example `/api/attendance`).
 
 ```
 src/
-  components/          # Calendar, summary cards, settings, games
+  components/          # Calendar, summary cards, settings, theme toggle, games
     games/             # Game console, Sudoku, Memory Match
   lib/                 # Attendance logic, API client, Sudoku engine
   App.tsx              # Main app
@@ -91,11 +92,12 @@ api/
 
 ## Usage
 
-1. Open **settings** (gear, bottom-right) to fill in your profile and office-day goal (or turn on **Go to office daily**)
-2. Add **leave** and **holidays** as needed
-3. Click calendar days to mark office attendance
-4. Open the **game console** (controller icon, above settings) for Sudoku or Memory Match
+1. Use the **theme toggle** (top-right) to switch light or dark mode — preference is remembered
+2. Open **settings** (gear, bottom-right) to fill in your profile and office-day goal (or turn on **Go to office daily**)
+3. Add **leave** and **holidays** as needed
+4. Click calendar days to mark office attendance
+5. Open the **game console** (controller icon, above settings) for Sudoku or Memory Match
 
 Data saves to MongoDB automatically. If the database is unreachable, changes stay in local cache until the connection is restored.
 
-Sudoku progress is stored only in the browser (`localStorage`) until you complete a puzzle.
+Sudoku progress and theme preference are stored only in the browser (`localStorage`).
