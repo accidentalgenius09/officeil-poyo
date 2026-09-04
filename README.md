@@ -68,7 +68,7 @@ src/
   components/     # Calendar, summary cards, settings panel
   lib/            # Attendance logic + API client
   App.tsx         # Main app
-server/
+api/
   index.js        # Express + MongoDB API
 ```
 

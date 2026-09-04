@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite",
-    "dev:server": "node server/index.js",
+    "dev:server": "node api/index.js",
     "build": "tsc -p tsconfig.app.json --noEmit && vite build",
     "preview": "vite preview"
   },
