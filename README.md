@@ -1,6 +1,6 @@
 # Officeil Poyo?
 
-Track your monthly office visits — mark days in or out, plan leave, add holidays, set visit goals, and sync everything to MongoDB Atlas.
+Track your monthly office visits — mark days in or out, plan leave, add holidays, set visit goals, and sync everything to MongoDB Atlas. Take a quick break with the built-in game console.
 
 ## Features
 
@@ -11,12 +11,16 @@ Track your monthly office visits — mark days in or out, plan leave, add holida
 - **Leave** — mark leave ranges in advance (shown in red; excluded from working days)
 - **Holiday calendar** — add named holidays so they don’t count as working days
 - **MongoDB sync** — attendance, profile, leave, and holidays persist in Atlas (with local cache fallback)
+- **Game console** — floating button above settings with quick break games:
+  - **Sudoku** — unfinished boards save in the browser; finishing clears the save and starts a new shuffled puzzle
+  - **Memory Match** — flip cards to find pairs
 
 ## Tech stack
 
 - React 19 + TypeScript + Vite
 - Express API
 - MongoDB Atlas
+- [Phosphor Icons](https://phosphoricons.com/)
 
 ## Setup
 
@@ -77,18 +81,21 @@ API routes are served from `api/index.js` (for example `/api/attendance`).
 
 ```
 src/
-  components/     # Calendar, summary cards, settings panel
-  lib/            # Attendance logic + API client
-  App.tsx         # Main app
+  components/          # Calendar, summary cards, settings, games
+    games/             # Game console, Sudoku, Memory Match
+  lib/                 # Attendance logic, API client, Sudoku engine
+  App.tsx              # Main app
 api/
-  index.js        # Express + MongoDB API
+  index.js             # Express + MongoDB API
 ```
 
 ## Usage
 
-1. Open settings (gear, bottom-right)
-2. Fill in your **profile** and set office days (or turn on **Go to office daily**)
-3. Add **leave** and **holidays** as needed
-4. Click calendar days to mark office attendance
+1. Open **settings** (gear, bottom-right) to fill in your profile and office-day goal (or turn on **Go to office daily**)
+2. Add **leave** and **holidays** as needed
+3. Click calendar days to mark office attendance
+4. Open the **game console** (controller icon, above settings) for Sudoku or Memory Match
 
 Data saves to MongoDB automatically. If the database is unreachable, changes stay in local cache until the connection is restored.
+
+Sudoku progress is stored only in the browser (`localStorage`) until you complete a puzzle.

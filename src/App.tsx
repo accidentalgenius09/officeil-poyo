@@ -18,6 +18,7 @@ import { MonthHeader } from './components/MonthHeader'
 import { SummaryCards } from './components/SummaryCards'
 import { CalendarGrid } from './components/CalendarGrid'
 import { SettingsFab, SettingsPanel } from './components/SettingsPanel'
+import { GamesConsole } from './components/games/GamesConsole'
 import './App.css'
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
   const [month, setMonth] = useState(now.getMonth())
   const [appData, setAppData] = useState<AppData>(() => loadCachedAppData())
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [gamesOpen, setGamesOpen] = useState(false)
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [saveError, setSaveError] = useState<string | null>(null)
   const skipNextSave = useRef(true)
@@ -231,9 +233,20 @@ function App() {
         </footer>
       </main>
 
+      <GamesConsole
+        open={gamesOpen}
+        onToggle={() => {
+          setGamesOpen((open) => !open)
+          setSettingsOpen(false)
+        }}
+        onClose={() => setGamesOpen(false)}
+      />
       <SettingsFab
         open={settingsOpen}
-        onToggle={() => setSettingsOpen((open) => !open)}
+        onToggle={() => {
+          setSettingsOpen((open) => !open)
+          setGamesOpen(false)
+        }}
       />
       <SettingsPanel
         open={settingsOpen}
