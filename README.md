@@ -41,6 +41,7 @@ PORT=3001
 ```
 
 > If your IP changes, update **Network Access** in Atlas or the app will fall back to local cache.
+> For Vercel, Atlas must allow **`0.0.0.0/0`** (Vercel IPs are dynamic).
 
 ### 3. Run
 
@@ -52,6 +53,17 @@ This starts:
 
 - App: [http://localhost:5173](http://localhost:5173)
 - API: [http://localhost:3001](http://localhost:3001)
+
+### 4. Deploy on Vercel
+
+1. Import the GitHub repo in [Vercel](https://vercel.com)
+2. Add environment variables (Production + Preview):
+   - `MONGODB_URI` — your Atlas connection string
+   - `MONGODB_DB` — `office-visit-calendar` (optional)
+3. In Atlas → **Network Access**, allow `0.0.0.0/0`
+4. Deploy (or push to `main`)
+
+API routes are served from `api/index.js` (for example `/api/attendance`).
 
 ## Scripts
 
