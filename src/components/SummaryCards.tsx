@@ -7,7 +7,17 @@ type SummaryCardsProps = {
 }
 
 export function SummaryCards({ stats, goal, goDaily }: SummaryCardsProps) {
-  const { daysInOffice, totalDaysInMonth, daysLeftToGoal, workingDaysRemaining } = stats
+  const {
+    daysInOffice,
+    daysWfh,
+    totalDaysInMonth,
+    daysLeftToGoal,
+    workingDaysRemaining,
+    canHitGoal,
+    paceNote,
+    weekOfficeDays,
+    officeStreak,
+  } = stats
   const progress =
     goal > 0 ? Math.min(100, Math.round((daysInOffice / goal) * 100)) : 0
 
@@ -19,7 +29,9 @@ export function SummaryCards({ stats, goal, goDaily }: SummaryCardsProps) {
           <span className="card-emphasis">{daysInOffice}</span>
           <span className="card-muted"> / {totalDaysInMonth}</span>
         </p>
-        <p className="card-note">Days in office</p>
+        <p className="card-note">
+          {daysWfh} WFH marked · {weekOfficeDays} this week
+        </p>
       </article>
 
       <article className="card">
@@ -36,6 +48,18 @@ export function SummaryCards({ stats, goal, goDaily }: SummaryCardsProps) {
           {workingDaysRemaining === 1 ? '' : 's'} remaining
           {goDaily ? ' · daily target' : ''}
         </p>
+      </article>
+
+      <article
+        className={`card card-wide${canHitGoal ? '' : ' card-warn'}`}
+        aria-live="polite"
+      >
+        <p className="card-label">Pace & streak</p>
+        <p className="card-value card-value-sm">
+          <span className="card-emphasis">{officeStreak}</span>
+          <span className="card-muted"> day streak</span>
+        </p>
+        <p className={`card-note${canHitGoal ? '' : ' pace-warn'}`}>{paceNote}</p>
       </article>
     </section>
   )

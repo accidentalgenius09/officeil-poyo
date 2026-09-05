@@ -1,13 +1,15 @@
-import type { DayStatus } from '../types'
+import type { DayStatus, LeavePortion } from '../types'
 import { daysInMonth, startOfToday, toDateKey } from '../lib/attendance'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+type LeaveInfo = { note: string; portion: LeavePortion }
 
 type CalendarGridProps = {
   year: number
   month: number
   days: Record<string, DayStatus>
-  leaveDates: Map<string, string>
+  leaveDates: Map<string, LeaveInfo>
   holidayDates: Map<string, string>
   onDayClick: (day: number) => void
 }
@@ -54,21 +56,44 @@ export function CalendarGrid({
           const status = days[dateKey] ?? null
           const isToday = isCurrentMonth && day === today.getDate()
           const holidayName = holidayDates.get(dateKey)
-          const leaveNote = leaveDates.get(dateKey)
+          const leave = leaveDates.get(dateKey)
 
-          let statusClass = status === 'office' ? 'office' : 'wfh'
-          let label = status === 'office' ? 'in office' : 'not in office'
+          let statusClass = 'unmarked'
+          let label = 'unmarked'
           let locked = false
 
           if (holidayName) {
             statusClass = 'holiday'
             label = `holiday: ${holidayName}`
             locked = true
-          } else if (leaveNote !== undefined) {
+          } else if (leave?.portion === 'full') {
             statusClass = 'leave'
-            label = leaveNote ? `leave: ${leaveNote}` : 'on leave'
+            label = leave.note ? `leave: ${leave.note}` : 'on leave'
             locked = true
+          } else if (status === 'office') {
+            statusClass = 'office'
+            label = 'in office'
+          } else if (status === 'wfh') {
+            statusClass = 'wfh'
+            label = 'working from home'
           }
+
+          if (leave && leave.portion !== 'full' && !holidayName) {
+            statusClass += ` leave-half leave-${leave.portion}`
+            label += `, leave ${leave.portion.toUpperCase()}`
+          }
+
+          const titleBits = [
+            holidayName,
+            leave
+              ? `${leave.note || 'Leave'} (${leave.portion.toUpperCase()})`
+              : null,
+            status === 'office'
+              ? 'In office'
+              : status === 'wfh'
+                ? 'WFH'
+                : null,
+          ].filter(Boolean)
 
           return (
             <button
@@ -79,10 +104,15 @@ export function CalendarGrid({
                 if (!locked) onDayClick(day)
               }}
               disabled={locked}
-              title={holidayName || leaveNote || undefined}
-              aria-label={`${dateKey}, ${label}. ${locked ? 'Managed in settings.' : 'Click to change.'}`}
+              title={titleBits.join(' · ') || undefined}
+              aria-label={`${dateKey}, ${label}. ${locked ? 'Managed in settings.' : 'Click to cycle office / WFH / unmarked.'}`}
             >
               <span className="day-num">{day}</span>
+              {leave && leave.portion !== 'full' && !holidayName && (
+                <span className="day-badge" aria-hidden>
+                  {leave.portion.toUpperCase()}
+                </span>
+              )}
             </button>
           )
         })}

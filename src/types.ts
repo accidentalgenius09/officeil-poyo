@@ -1,5 +1,7 @@
 export type DayStatus = 'office' | 'wfh' | null
 
+export type LeavePortion = 'full' | 'am' | 'pm'
+
 export type MonthAttendance = {
   year: number
   month: number // 0–11
@@ -11,12 +13,15 @@ export type LeaveEntry = {
   start: string // YYYY-MM-DD
   end: string
   note: string
+  /** Full day locks the cell; AM/PM leave still allows office/WFH marking. */
+  portion: LeavePortion
 }
 
 export type HolidayEntry = {
   id: string
-  date: string // YYYY-MM-DD
+  date: string // YYYY-MM-DD (MM-DD reused each year when recurring)
   name: string
+  recurring?: boolean
 }
 
 export type UserProfile = {
@@ -42,7 +47,18 @@ export type AppData = {
 
 export type MonthStats = {
   daysInOffice: number
+  daysWfh: number
   totalDaysInMonth: number
   daysLeftToGoal: number
   workingDaysRemaining: number
+  canHitGoal: boolean
+  paceNote: string
+  weekOfficeDays: number
+  officeStreak: number
+}
+
+export type AuthUser = {
+  id: string
+  email: string
+  name: string
 }
