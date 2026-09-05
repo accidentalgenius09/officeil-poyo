@@ -1,14 +1,30 @@
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { GearSix } from '@phosphor-icons/react'
-import type { CalendarSettings, HolidayEntry, LeaveEntry, UserProfile } from '../types'
+import type {
+  CalendarSettings,
+  HolidayEntry,
+  LeaveEntry,
+  LeavePortion,
+  UserProfile,
+} from '../types'
 import { newId } from '../lib/attendance'
+import { importIndiaHolidays } from '../lib/holidays'
+import { POLICY_PRESETS } from '../lib/presets'
+import { exportMonthCsv, exportYearCsv } from '../lib/exportCsv'
+import type { AppData } from '../types'
 import { trackEvent } from '../lib/analytics'
+import { toast } from 'react-hot-toast'
 
 type SettingsPanelProps = {
   open: boolean
   settings: CalendarSettings
+  appData: AppData
+  viewYear: number
+  viewMonth: number
+  userEmail?: string
   onClose: () => void
   onChange: (next: CalendarSettings) => void
+  onSignOut: () => void
 }
 
 function todayInputValue(): string {
@@ -23,23 +39,37 @@ function formatRange(start: string, end: string): string {
   return `${start} → ${end}`
 }
 
+function portionLabel(portion: LeavePortion): string {
+  if (portion === 'am') return 'AM'
+  if (portion === 'pm') return 'PM'
+  return 'Full day'
+}
+
 export function SettingsPanel({
   open,
   settings,
+  appData,
+  viewYear,
+  viewMonth,
+  userEmail,
   onClose,
   onChange,
+  onSignOut,
 }: SettingsPanelProps) {
   const titleId = useId()
   const dailyToggleId = useId()
   const [leaveStart, setLeaveStart] = useState(todayInputValue)
   const [leaveEnd, setLeaveEnd] = useState(todayInputValue)
   const [leaveNote, setLeaveNote] = useState('')
+  const [leavePortion, setLeavePortion] = useState<LeavePortion>('full')
   const [holidayDate, setHolidayDate] = useState(todayInputValue)
   const [holidayName, setHolidayName] = useState('')
-  const [formError, setFormError] = useState<string | null>(null)
+  const [holidayRecurring, setHolidayRecurring] = useState(false)
+  const [exportYear, setExportYear] = useState(viewYear)
 
   useEffect(() => {
     if (!open) return
+    setExportYear(viewYear)
 
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose()
@@ -47,7 +77,7 @@ export function SettingsPanel({
 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, onClose, viewYear])
 
   if (!open) return null
 
@@ -63,7 +93,7 @@ export function SettingsPanel({
     const start = leaveStart <= leaveEnd ? leaveStart : leaveEnd
     const end = leaveStart <= leaveEnd ? leaveEnd : leaveStart
     if (!start || !end) {
-      setFormError('Choose leave dates.')
+      toast.error('Choose leave dates.')
       return
     }
 
@@ -72,6 +102,7 @@ export function SettingsPanel({
       start,
       end,
       note: leaveNote.trim(),
+      portion: leavePortion,
     }
     onChange({
       ...settings,
@@ -79,9 +110,9 @@ export function SettingsPanel({
         a.start.localeCompare(b.start),
       ),
     })
-    trackEvent('add_leave')
+    trackEvent('add_leave', { portion: leavePortion })
     setLeaveNote('')
-    setFormError(null)
+    setLeavePortion('full')
   }
 
   function removeLeave(id: string) {
@@ -96,7 +127,7 @@ export function SettingsPanel({
     event.preventDefault()
     const name = holidayName.trim()
     if (!holidayDate || !name) {
-      setFormError('Holiday needs a name and date.')
+      toast.error('Holiday needs a name and date.')
       return
     }
 
@@ -104,6 +135,7 @@ export function SettingsPanel({
       id: newId(),
       date: holidayDate,
       name,
+      recurring: holidayRecurring,
     }
     onChange({
       ...settings,
@@ -111,9 +143,9 @@ export function SettingsPanel({
         a.date.localeCompare(b.date),
       ),
     })
-    trackEvent('add_holiday')
+    trackEvent('add_holiday', { recurring: holidayRecurring })
     setHolidayName('')
-    setFormError(null)
+    setHolidayRecurring(false)
   }
 
   function removeHoliday(id: string) {
@@ -122,6 +154,12 @@ export function SettingsPanel({
       holidays: settings.holidays.filter((entry) => entry.id !== id),
     })
     trackEvent('remove_holiday')
+  }
+
+  function applyIndiaPack() {
+    const next = importIndiaHolidays(viewYear, settings.holidays)
+    onChange({ ...settings, holidays: next })
+    trackEvent('import_holidays', { pack: 'india' })
   }
 
   const { profile } = settings
@@ -147,7 +185,22 @@ export function SettingsPanel({
           </button>
         </header>
 
-        {formError && <p className="settings-error">{formError}</p>}
+        <section className="settings-section">
+          <h3>Account</h3>
+          <p className="settings-help">
+            Signed in as {userEmail || profile.email || 'your account'}.
+          </p>
+          <button
+            type="button"
+            className="settings-submit settings-danger"
+            onClick={() => {
+              trackEvent('logout')
+              onSignOut()
+            }}
+          >
+            Sign out
+          </button>
+        </section>
 
         <section className="settings-section">
           <h3>User profile</h3>
@@ -239,12 +292,76 @@ export function SettingsPanel({
               />
             </label>
           )}
+
+          <div className="preset-block">
+            <p className="profile-daily-title">Policy presets</p>
+            <p className="settings-help">
+              Quick targets for common hybrid policies.
+            </p>
+            <div className="preset-grid">
+              {POLICY_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className="preset-btn"
+                  onClick={() => {
+                    updateProfile(preset.apply(viewYear, viewMonth))
+                    trackEvent('apply_policy_preset', { preset: preset.id })
+                  }}
+                >
+                  <span className="preset-title">{preset.label}</span>
+                  <span className="preset-blurb">{preset.blurb}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <h3>Export CSV</h3>
+          <p className="settings-help">
+            Download the current month day-by-day, or a full year summary
+            (month name + office days).
+          </p>
+          <div className="export-row">
+            <button
+              type="button"
+              className="settings-submit"
+              onClick={() => {
+                exportMonthCsv(appData, viewYear, viewMonth)
+                trackEvent('export_csv', { scope: 'month' })
+              }}
+            >
+              This month
+            </button>
+            <label className="export-year">
+              Year
+              <input
+                type="number"
+                min={2000}
+                max={2100}
+                value={exportYear}
+                onChange={(e) => setExportYear(Number(e.target.value) || viewYear)}
+              />
+            </label>
+            <button
+              type="button"
+              className="settings-submit"
+              onClick={() => {
+                exportYearCsv(appData, exportYear)
+                trackEvent('export_csv', { scope: 'year', year: exportYear })
+              }}
+            >
+              Year summary
+            </button>
+          </div>
         </section>
 
         <section className="settings-section">
           <h3>Mark leave</h3>
           <p className="settings-help">
-            Plan leave in advance. Those days are excluded from working days.
+            Full-day leave is locked on the calendar. AM/PM leave still lets you
+            mark office or WFH for the other half.
           </p>
           <form className="settings-form" onSubmit={addLeave}>
             <label>
@@ -264,6 +381,19 @@ export function SettingsPanel({
                 onChange={(e) => setLeaveEnd(e.target.value)}
                 required
               />
+            </label>
+            <label>
+              Portion
+              <select
+                value={leavePortion}
+                onChange={(e) =>
+                  setLeavePortion(e.target.value as LeavePortion)
+                }
+              >
+                <option value="full">Full day</option>
+                <option value="am">Morning (AM)</option>
+                <option value="pm">Afternoon (PM)</option>
+              </select>
             </label>
             <label className="settings-span">
               Note (optional)
@@ -288,7 +418,10 @@ export function SettingsPanel({
               <li key={entry.id}>
                 <div>
                   <strong>{formatRange(entry.start, entry.end)}</strong>
-                  {entry.note && <span>{entry.note}</span>}
+                  <span>
+                    {portionLabel(entry.portion ?? 'full')}
+                    {entry.note ? ` · ${entry.note}` : ''}
+                  </span>
                 </div>
                 <button type="button" onClick={() => removeLeave(entry.id)}>
                   Remove
@@ -301,8 +434,16 @@ export function SettingsPanel({
         <section className="settings-section">
           <h3>Holiday calendar</h3>
           <p className="settings-help">
-            Add holidays so they don’t count as working days.
+            Add holidays so they don’t count as working days. Recurring holidays
+            repeat every year on the same date.
           </p>
+          <button
+            type="button"
+            className="settings-submit"
+            onClick={applyIndiaPack}
+          >
+            Import India pack ({viewYear})
+          </button>
           <form className="settings-form" onSubmit={addHoliday}>
             <label>
               Date
@@ -324,6 +465,14 @@ export function SettingsPanel({
                 required
               />
             </label>
+            <label className="settings-check settings-span">
+              <input
+                type="checkbox"
+                checked={holidayRecurring}
+                onChange={(e) => setHolidayRecurring(e.target.checked)}
+              />
+              Repeat every year
+            </label>
             <button type="submit" className="settings-submit">
               Add holiday
             </button>
@@ -337,7 +486,10 @@ export function SettingsPanel({
               <li key={entry.id}>
                 <div>
                   <strong>{entry.date}</strong>
-                  <span>{entry.name}</span>
+                  <span>
+                    {entry.name}
+                    {entry.recurring ? ' · yearly' : ''}
+                  </span>
                 </div>
                 <button type="button" onClick={() => removeHoliday(entry.id)}>
                   Remove
