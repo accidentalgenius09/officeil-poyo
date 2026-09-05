@@ -2,6 +2,7 @@ import { useEffect, useId, useState, type FormEvent } from 'react'
 import { GearSix } from '@phosphor-icons/react'
 import type { CalendarSettings, HolidayEntry, LeaveEntry, UserProfile } from '../types'
 import { newId } from '../lib/attendance'
+import { trackEvent } from '../lib/analytics'
 
 type SettingsPanelProps = {
   open: boolean
@@ -78,6 +79,7 @@ export function SettingsPanel({
         a.start.localeCompare(b.start),
       ),
     })
+    trackEvent('add_leave')
     setLeaveNote('')
     setFormError(null)
   }
@@ -87,6 +89,7 @@ export function SettingsPanel({
       ...settings,
       leaves: settings.leaves.filter((entry) => entry.id !== id),
     })
+    trackEvent('remove_leave')
   }
 
   function addHoliday(event: FormEvent) {
@@ -108,6 +111,7 @@ export function SettingsPanel({
         a.date.localeCompare(b.date),
       ),
     })
+    trackEvent('add_holiday')
     setHolidayName('')
     setFormError(null)
   }
@@ -117,6 +121,7 @@ export function SettingsPanel({
       ...settings,
       holidays: settings.holidays.filter((entry) => entry.id !== id),
     })
+    trackEvent('remove_holiday')
   }
 
   const { profile } = settings
@@ -199,7 +204,11 @@ export function SettingsPanel({
               className={`toggle-btn${profile.goDaily ? ' on' : ''}`}
               role="switch"
               aria-checked={profile.goDaily}
-              onClick={() => updateProfile({ goDaily: !profile.goDaily })}
+              onClick={() => {
+                const next = !profile.goDaily
+                updateProfile({ goDaily: next })
+                trackEvent('toggle_go_daily', { enabled: next })
+              }}
             >
               <span className="toggle-knob" />
               <span className="toggle-label">{profile.goDaily ? 'Yes' : 'No'}</span>
@@ -217,8 +226,14 @@ export function SettingsPanel({
                 onChange={(e) => {
                   const value = Number(e.target.value)
                   if (!Number.isFinite(value)) return
-                  updateProfile({
-                    officeDaysGoal: Math.min(31, Math.max(1, Math.round(value))),
+                  const goal = Math.min(31, Math.max(1, Math.round(value)))
+                  updateProfile({ officeDaysGoal: goal })
+                }}
+                onBlur={(e) => {
+                  const value = Number(e.target.value)
+                  if (!Number.isFinite(value)) return
+                  trackEvent('set_office_goal', {
+                    goal: Math.min(31, Math.max(1, Math.round(value))),
                   })
                 }}
               />

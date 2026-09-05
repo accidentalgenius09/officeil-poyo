@@ -1,4 +1,5 @@
-import { useEffect, useId, useMemo, useState, type ComponentType } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ComponentType } from 'react'
+import { trackEvent } from '../../lib/analytics'
 import {
   Clock,
   Coffee,
@@ -70,6 +71,13 @@ export function MemoryGame({ onBack }: MemoryGameProps) {
   const [locked, setLocked] = useState(false)
 
   const won = useMemo(() => cards.every((card) => card.matched), [cards])
+  const trackedWin = useRef(false)
+
+  useEffect(() => {
+    if (!won || trackedWin.current) return
+    trackedWin.current = true
+    trackEvent('game_complete', { game: 'memory', moves })
+  }, [won, moves])
 
   useEffect(() => {
     if (flipped.length !== 2) return
@@ -103,10 +111,12 @@ export function MemoryGame({ onBack }: MemoryGameProps) {
   }
 
   function reset() {
+    trackedWin.current = false
     setCards(shuffleCards())
     setFlipped([])
     setMoves(0)
     setLocked(false)
+    trackEvent('new_game', { game: 'memory' })
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import {
   clearSudokuSave,
   hasConflict,
@@ -7,6 +7,7 @@ import {
   saveSudokuProgress,
   startSudoku,
 } from '../../lib/sudoku'
+import { trackEvent } from '../../lib/analytics'
 
 type SudokuGameProps = {
   onBack: () => void
@@ -28,10 +29,18 @@ export function SudokuGame({ onBack }: SudokuGameProps) {
     null,
   )
 
+  const trackedWin = useRef(false)
+
   useEffect(() => {
     if (won) return
     saveSudokuProgress({ puzzle, board })
   }, [puzzle, board, won])
+
+  useEffect(() => {
+    if (!won || trackedWin.current) return
+    trackedWin.current = true
+    trackEvent('game_complete', { game: 'sudoku' })
+  }, [won])
 
   function placeNumber(num: number) {
     if (!selected || won) return
@@ -64,8 +73,10 @@ export function SudokuGame({ onBack }: SudokuGameProps) {
     clearSudokuSave()
     const fresh = startSudoku()
     setSelected(null)
+    trackedWin.current = false
     setState({ ...fresh, won: false })
     saveSudokuProgress(fresh)
+    trackEvent('new_game', { game: 'sudoku' })
   }
 
   useEffect(() => {

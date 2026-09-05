@@ -14,6 +14,7 @@ import {
   toDateKey,
 } from "./lib/attendance";
 import { fetchAppData, persistAppData } from "./lib/api";
+import { trackEvent } from "./lib/analytics";
 import { MonthHeader } from "./components/MonthHeader";
 import { SummaryCards } from "./components/SummaryCards";
 import { CalendarGrid } from "./components/CalendarGrid";
@@ -117,6 +118,7 @@ function App() {
   }, [appData]);
 
   function goPrevMonth() {
+    trackEvent("change_month", { direction: "prev" });
     if (month === 0) {
       setYear((y) => y - 1);
       setMonth(11);
@@ -126,6 +128,7 @@ function App() {
   }
 
   function goNextMonth() {
+    trackEvent("change_month", { direction: "next" });
     if (month === 11) {
       setYear((y) => y + 1);
       setMonth(0);
@@ -135,6 +138,7 @@ function App() {
   }
 
   function goToToday() {
+    trackEvent("change_month", { direction: "today" });
     const t = new Date();
     setYear(t.getFullYear());
     setMonth(t.getMonth());
@@ -143,6 +147,11 @@ function App() {
   function setDayStatus(day: number, status: DayStatus) {
     const key = monthStorageKey(year, month);
     const dateKey = toDateKey(year, month, day);
+
+    trackEvent("toggle_attendance", {
+      status: status ?? "unmarked",
+      month: monthStorageKey(year, month),
+    });
 
     setAppData((prev) => {
       const current = getMonthAttendance(prev.attendance, year, month);
@@ -245,22 +254,36 @@ function App() {
       <GamesConsole
         open={gamesOpen}
         onToggle={() => {
-          setGamesOpen((open) => !open);
+          setGamesOpen((open) => {
+            const next = !open;
+            trackEvent(next ? "open_games" : "close_games");
+            return next;
+          });
           setSettingsOpen(false);
         }}
-        onClose={() => setGamesOpen(false)}
+        onClose={() => {
+          trackEvent("close_games");
+          setGamesOpen(false);
+        }}
       />
       <SettingsFab
         open={settingsOpen}
         onToggle={() => {
-          setSettingsOpen((open) => !open);
+          setSettingsOpen((open) => {
+            const next = !open;
+            trackEvent(next ? "open_settings" : "close_settings");
+            return next;
+          });
           setGamesOpen(false);
         }}
       />
       <SettingsPanel
         open={settingsOpen}
         settings={appData.settings}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => {
+          trackEvent("close_settings");
+          setSettingsOpen(false);
+        }}
         onChange={(settings) => setAppData((prev) => ({ ...prev, settings }))}
       />
     </div>
