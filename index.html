@@ -28,7 +28,7 @@
 			(function() {
 				try {
 					var stored = localStorage.getItem('officeil-theme')
-					var mode = stored === 'light' || stored === 'dark' ? stored : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+					var mode = stored === 'light' || stored === 'dark' ? stored : 'light'
 					document.documentElement.setAttribute('data-theme', mode)
 					document.documentElement.style.colorScheme = mode
 				} catch (e) {}
