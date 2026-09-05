@@ -4,6 +4,7 @@ import type {
   DayStatus,
   HolidayEntry,
   LeaveEntry,
+  LeavePortion,
   MonthAttendance,
   MonthStats,
   UserProfile,
@@ -12,6 +13,11 @@ import type {
 const STORAGE_KEY = 'office-visit-app-data'
 const LEGACY_STORAGE_KEY = 'office-visit-attendance'
 const DEFAULT_OFFICE_GOAL = 12
+
+export type LeaveCoverage = {
+  note: string
+  portion: LeavePortion
+}
 
 export function emptyProfile(): UserProfile {
   return {
@@ -97,13 +103,39 @@ export function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-/** Date keys blocked by leave or holiday (not expected office days). */
-export function blockedDateKeys(settings: CalendarSettings): Set<string> {
+function holidayKeyForYear(holiday: HolidayEntry, year: number): string {
+  if (!holiday.recurring) return holiday.date
+  const md = holiday.date.slice(5)
+  return `${year}-${md}`
+}
+
+/** Date keys blocked by full leave or holiday (not expected office days). */
+export function blockedDateKeys(
+  settings: CalendarSettings,
+  year?: number,
+  month?: number,
+): Set<string> {
   const blocked = new Set<string>()
+
   for (const holiday of settings.holidays) {
-    blocked.add(holiday.date)
+    if (year !== undefined) {
+      blocked.add(holidayKeyForYear(holiday, year))
+      if (holiday.recurring && month !== undefined) {
+        // also ensure current view year is covered
+        blocked.add(holidayKeyForYear(holiday, year))
+      }
+    } else if (holiday.recurring) {
+      const nowYear = startOfToday().getFullYear()
+      for (let y = nowYear - 1; y <= nowYear + 2; y++) {
+        blocked.add(holidayKeyForYear(holiday, y))
+      }
+    } else {
+      blocked.add(holiday.date)
+    }
   }
+
   for (const leave of settings.leaves) {
+    if (leave.portion !== 'full') continue
     for (const key of eachDateKeyInRange(leave.start, leave.end)) {
       blocked.add(key)
     }
@@ -113,20 +145,70 @@ export function blockedDateKeys(settings: CalendarSettings): Set<string> {
 
 export function holidayNameByDate(
   settings: CalendarSettings,
+  year?: number,
+  month?: number,
 ): Map<string, string> {
   const map = new Map<string, string>()
+  const years =
+    year !== undefined
+      ? [year]
+      : [
+          startOfToday().getFullYear() - 1,
+          startOfToday().getFullYear(),
+          startOfToday().getFullYear() + 1,
+          startOfToday().getFullYear() + 2,
+        ]
+
   for (const holiday of settings.holidays) {
-    map.set(holiday.date, holiday.name)
+    if (holiday.recurring) {
+      for (const y of years) {
+        const key = holidayKeyForYear(holiday, y)
+        if (month !== undefined) {
+          const parsed = parseDateKey(key)
+          if (!parsed || parsed.getMonth() !== month) continue
+        }
+        map.set(key, holiday.name)
+      }
+    } else {
+      if (year !== undefined || month !== undefined) {
+        const parsed = parseDateKey(holiday.date)
+        if (!parsed) continue
+        if (year !== undefined && parsed.getFullYear() !== year) continue
+        if (month !== undefined && parsed.getMonth() !== month) continue
+      }
+      map.set(holiday.date, holiday.name)
+    }
   }
   return map
 }
 
-export function leaveNoteByDate(settings: CalendarSettings): Map<string, string> {
-  const map = new Map<string, string>()
+export function leaveCoverageByDate(
+  settings: CalendarSettings,
+): Map<string, LeaveCoverage> {
+  const map = new Map<string, LeaveCoverage>()
   for (const leave of settings.leaves) {
     for (const key of eachDateKeyInRange(leave.start, leave.end)) {
-      map.set(key, leave.note || 'Leave')
+      const existing = map.get(key)
+      // Full leave wins over half-day if both somehow overlap
+      if (existing?.portion === 'full') continue
+      map.set(key, {
+        note: leave.note || 'Leave',
+        portion: leave.portion ?? 'full',
+      })
     }
+  }
+  return map
+}
+
+/** @deprecated Prefer leaveCoverageByDate for portion-aware UI. */
+export function leaveNoteByDate(settings: CalendarSettings): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const [key, coverage] of leaveCoverageByDate(settings)) {
+    const tag =
+      coverage.portion === 'full'
+        ? coverage.note
+        : `${coverage.note} (${coverage.portion.toUpperCase()})`
+    map.set(key, tag)
   }
   return map
 }
@@ -156,6 +238,11 @@ function looksLikeLegacyAttendance(
   )
 }
 
+function normalizePortion(raw: unknown): LeavePortion {
+  if (raw === 'am' || raw === 'pm' || raw === 'full') return raw
+  return 'full'
+}
+
 function normalizeLeave(raw: unknown): LeaveEntry | null {
   if (!raw || typeof raw !== 'object') return null
   const entry = raw as Partial<LeaveEntry>
@@ -168,6 +255,7 @@ function normalizeLeave(raw: unknown): LeaveEntry | null {
     start,
     end,
     note: typeof entry.note === 'string' ? entry.note : '',
+    portion: normalizePortion(entry.portion),
   }
 }
 
@@ -180,6 +268,7 @@ function normalizeHoliday(raw: unknown): HolidayEntry | null {
     id: typeof entry.id === 'string' && entry.id ? entry.id : newId(),
     date: entry.date,
     name: entry.name.trim(),
+    recurring: Boolean(entry.recurring),
   }
 }
 
@@ -273,13 +362,16 @@ export function getMonthAttendance(
   return all[key] ?? emptyMonth(year, month)
 }
 
-/** Unmarked and explicit WFH both mean not in office. */
+/** Unmarked does not count; only explicit office status. */
 export function isInOffice(status: DayStatus | undefined): boolean {
   return status === 'office'
 }
 
+/** Cycle: unmarked → office → WFH → unmarked */
 export function cycleStatus(current: DayStatus): DayStatus {
-  return current === 'office' ? null : 'office'
+  if (current === null) return 'office'
+  if (current === 'office') return 'wfh'
+  return null
 }
 
 export function isWeekday(date: Date): boolean {
@@ -287,7 +379,7 @@ export function isWeekday(date: Date): boolean {
   return day !== 0 && day !== 6
 }
 
-/** Weekdays from today through month end, excluding leave and holidays. */
+/** Weekdays from today through month end, excluding full leave and holidays. */
 export function countWorkingDaysRemaining(
   year: number,
   month: number,
@@ -301,7 +393,7 @@ export function countWorkingDaysRemaining(
   const sameMonth =
     today.getFullYear() === year && today.getMonth() === month
   const startDay = sameMonth ? today.getDate() : 1
-  const blocked = blockedDateKeys(settings)
+  const blocked = blockedDateKeys(settings, year, month)
 
   let count = 0
   for (let day = startDay; day <= total; day++) {
@@ -313,14 +405,14 @@ export function countWorkingDaysRemaining(
   return count
 }
 
-/** All weekdays in the month, excluding leave and holidays. */
+/** All weekdays in the month, excluding full leave and holidays. */
 export function countWorkingDaysInMonth(
   year: number,
   month: number,
   settings: CalendarSettings = emptySettings(),
 ): number {
   const total = daysInMonth(year, month)
-  const blocked = blockedDateKeys(settings)
+  const blocked = blockedDateKeys(settings, year, month)
   let count = 0
   for (let day = 1; day <= total; day++) {
     const date = new Date(year, month, day)
@@ -343,28 +435,141 @@ export function resolveOfficeGoal(
   return settings.profile.officeDaysGoal || DEFAULT_OFFICE_GOAL
 }
 
+function startOfWeekSunday(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  d.setDate(d.getDate() - d.getDay())
+  return d
+}
+
+/** Office days in the calendar week (Sun–Sat) that contains `today`. */
+export function countWeekOfficeDays(
+  attendanceMap: Record<string, MonthAttendance>,
+  today: Date = startOfToday(),
+): number {
+  const start = startOfWeekSunday(today)
+  let count = 0
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    const monthAtt = getMonthAttendance(
+      attendanceMap,
+      d.getFullYear(),
+      d.getMonth(),
+    )
+    const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate())
+    if (isInOffice(monthAtt.days[key])) count += 1
+  }
+  return count
+}
+
+/**
+ * Consecutive office days ending on the most recent day that is today or earlier.
+ * Skips weekends/full-leave/holidays without breaking the streak; unmarked/WFH breaks it.
+ */
+export function computeOfficeStreak(
+  attendanceMap: Record<string, MonthAttendance>,
+  settings: CalendarSettings = emptySettings(),
+  today: Date = startOfToday(),
+): number {
+  let streak = 0
+  const cursor = new Date(today)
+
+  for (let i = 0; i < 366; i++) {
+    const y = cursor.getFullYear()
+    const m = cursor.getMonth()
+    const day = cursor.getDate()
+    const key = toDateKey(y, m, day)
+    const holidays = holidayNameByDate(settings, y, m)
+    const leaves = leaveCoverageByDate(settings)
+    const leave = leaves.get(key)
+
+    if (!isWeekday(cursor) || holidays.has(key) || leave?.portion === 'full') {
+      cursor.setDate(cursor.getDate() - 1)
+      continue
+    }
+
+    const monthAtt = getMonthAttendance(attendanceMap, y, m)
+    if (isInOffice(monthAtt.days[key])) {
+      streak += 1
+      cursor.setDate(cursor.getDate() - 1)
+      continue
+    }
+    break
+  }
+
+  return streak
+}
+
+function buildPaceNote(
+  daysLeftToGoal: number,
+  workingDaysRemaining: number,
+  canHitGoal: boolean,
+  viewingPast: boolean,
+): string {
+  if (viewingPast) {
+    return daysLeftToGoal === 0 ? 'Goal met for this month' : 'Month ended'
+  }
+  if (daysLeftToGoal === 0) return 'Goal reached — nice work'
+  if (!canHitGoal) {
+    return `Cannot hit goal — need ${daysLeftToGoal} more with ${workingDaysRemaining} working day${workingDaysRemaining === 1 ? '' : 's'} left`
+  }
+  if (daysLeftToGoal === workingDaysRemaining) {
+    return `On the edge — office every remaining working day`
+  }
+  return `On pace — ${workingDaysRemaining - daysLeftToGoal} buffer day${workingDaysRemaining - daysLeftToGoal === 1 ? '' : 's'}`
+}
+
 export function computeStats(
   attendance: MonthAttendance,
   settings: CalendarSettings = emptySettings(),
   today: Date = startOfToday(),
+  allAttendance: Record<string, MonthAttendance> = {},
 ): MonthStats {
   const { year, month, days } = attendance
   const totalDaysInMonth = daysInMonth(year, month)
   const goal = resolveOfficeGoal(year, month, settings)
 
   let daysInOffice = 0
+  let daysWfh = 0
   for (let day = 1; day <= totalDaysInMonth; day++) {
     const key = toDateKey(year, month, day)
-    if (isInOffice(days[key])) daysInOffice += 1
+    if (days[key] === 'office') daysInOffice += 1
+    else if (days[key] === 'wfh') daysWfh += 1
   }
 
   const daysLeftToGoal = Math.max(0, goal - daysInOffice)
+  const workingDaysRemaining = countWorkingDaysRemaining(
+    year,
+    month,
+    settings,
+    today,
+  )
+  const monthEnd = new Date(year, month, totalDaysInMonth)
+  const viewingPast = monthEnd.getTime() < today.getTime()
+  const canHitGoal = viewingPast
+    ? daysLeftToGoal === 0
+    : daysLeftToGoal <= workingDaysRemaining
+
+  const mapForInsights =
+    Object.keys(allAttendance).length > 0
+      ? allAttendance
+      : { [monthStorageKey(year, month)]: attendance }
 
   return {
     daysInOffice,
+    daysWfh,
     totalDaysInMonth,
     daysLeftToGoal,
-    workingDaysRemaining: countWorkingDaysRemaining(year, month, settings, today),
+    workingDaysRemaining,
+    canHitGoal,
+    paceNote: buildPaceNote(
+      daysLeftToGoal,
+      workingDaysRemaining,
+      canHitGoal,
+      viewingPast,
+    ),
+    weekOfficeDays: countWeekOfficeDays(mapForInsights, today),
+    officeStreak: computeOfficeStreak(mapForInsights, settings, today),
   }
 }
 

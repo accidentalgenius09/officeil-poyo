@@ -1,30 +1,41 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AppData, DayStatus } from "./types";
+import type { AppData, AuthUser, DayStatus } from "./types";
 import {
   cacheAppData,
   computeStats,
   cycleStatus,
   getMonthAttendance,
   holidayNameByDate,
-  leaveNoteByDate,
+  leaveCoverageByDate,
   loadCachedAppData,
   monthLabel,
   monthStorageKey,
   resolveOfficeGoal,
   toDateKey,
 } from "./lib/attendance";
-import { fetchAppData, persistAppData } from "./lib/api";
+import {
+  clearSession,
+  fetchAppData,
+  fetchMe,
+  getStoredToken,
+  getStoredUser,
+  persistAppData,
+} from "./lib/api";
 import { trackEvent } from "./lib/analytics";
+import { AuthScreen } from "./components/AuthScreen";
 import { MonthHeader } from "./components/MonthHeader";
 import { SummaryCards } from "./components/SummaryCards";
 import { CalendarGrid } from "./components/CalendarGrid";
 import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
 import { GamesConsole } from "./components/games/GamesConsole";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { toast } from 'react-hot-toast'
 import "./App.css";
 
 function App() {
   const now = new Date();
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser());
+  const [authChecking, setAuthChecking] = useState(() => Boolean(getStoredToken()));
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [appData, setAppData] = useState<AppData>(() => loadCachedAppData());
@@ -33,25 +44,62 @@ function App() {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     "loading",
   );
-  const [saveError, setSaveError] = useState<string | null>(null);
   const skipNextSave = useRef(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadErrorToasted = useRef(false);
 
   const attendance = getMonthAttendance(appData.attendance, year, month);
-  const stats = computeStats(attendance, appData.settings);
+  const stats = computeStats(
+    attendance,
+    appData.settings,
+    undefined,
+    appData.attendance,
+  );
   const officeGoal = resolveOfficeGoal(year, month, appData.settings);
   const profile = appData.settings.profile;
   const leaveDates = useMemo(
-    () => leaveNoteByDate(appData.settings),
+    () => leaveCoverageByDate(appData.settings),
     [appData.settings],
   );
   const holidayDates = useMemo(
-    () => holidayNameByDate(appData.settings),
-    [appData.settings],
+    () => holidayNameByDate(appData.settings, year, month),
+    [appData.settings, year, month],
   );
 
   useEffect(() => {
     let cancelled = false;
+    const token = getStoredToken();
+    if (!token) {
+      setAuthChecking(false);
+      setUser(null);
+      return;
+    }
+
+    (async () => {
+      try {
+        const me = await fetchMe();
+        if (cancelled) return;
+        setUser(me);
+      } catch {
+        if (cancelled) return;
+        clearSession();
+        setUser(null);
+      } finally {
+        if (!cancelled) setAuthChecking(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+    setLoadState("loading");
+    skipNextSave.current = true;
 
     (async () => {
       try {
@@ -80,9 +128,16 @@ function App() {
           cacheAppData(remote);
         }
         setLoadState("ready");
+        loadErrorToasted.current = false;
       } catch {
         if (cancelled) return;
         setLoadState("error");
+        if (!loadErrorToasted.current) {
+          loadErrorToasted.current = true;
+          toast.error(
+            "Could not reach MongoDB. Showing local cache. If your IP changed, add it in Atlas → Network Access.",
+          );
+        }
       } finally {
         skipNextSave.current = true;
       }
@@ -91,9 +146,10 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
+    if (!user) return;
     if (skipNextSave.current) {
       skipNextSave.current = false;
       return;
@@ -104,18 +160,26 @@ function App() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       persistAppData(appData)
-        .then(() => setSaveError(null))
-        .catch(() =>
-          setSaveError(
+        .then(() => undefined)
+        .catch((err) => {
+          const message =
+            err instanceof Error ? err.message : "Could not save to MongoDB.";
+          if (/sign in|unauthorized|401/i.test(message)) {
+            clearSession();
+            setUser(null);
+            toast.error("Session expired. Please sign in again.");
+            return;
+          }
+          toast.error(
             "Could not save to MongoDB. Check Atlas Network Access for your current IP.",
-          ),
-        );
+          );
+        });
     }, 400);
 
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [appData]);
+  }, [appData, user]);
 
   function goPrevMonth() {
     trackEvent("change_month", { direction: "prev" });
@@ -183,6 +247,36 @@ function App() {
     setDayStatus(day, cycleStatus(current));
   }
 
+  function handleSignOut() {
+    clearSession();
+    setUser(null);
+    setSettingsOpen(false);
+    setGamesOpen(false);
+  }
+
+  if (authChecking) {
+    return (
+      <div className="auth-screen">
+        <div className="app-bg" aria-hidden="true" />
+        <p className="auth-loading">Checking session…</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <ThemeToggle />
+        <AuthScreen
+          onAuthenticated={(next) => {
+            skipNextSave.current = true;
+            setUser(next);
+          }}
+        />
+      </>
+    );
+  }
+
   const brandSub = profile.name
     ? [profile.name, profile.role].filter(Boolean).join(" · ")
     : "Track your in-office days";
@@ -198,13 +292,6 @@ function App() {
           {loadState === "loading" && (
             <p className="sync-status">Loading from MongoDB…</p>
           )}
-          {loadState === "error" && (
-            <p className="sync-status sync-error">
-              Could not reach MongoDB. Showing local cache. If your IP changed,
-              add it in Atlas → Network Access.
-            </p>
-          )}
-          {saveError && <p className="sync-status sync-error">{saveError}</p>}
         </header>
 
         <MonthHeader
@@ -220,7 +307,8 @@ function App() {
           goDaily={profile.goDaily}
         />
         <p className="hint">
-          Click a day to toggle office. Use settings to mark leave or holidays.
+          Click a day to cycle: office → WFH → unmarked. Use settings for leave,
+          holidays, export, and policy presets.
         </p>
         <CalendarGrid
           year={year}
@@ -236,7 +324,10 @@ function App() {
             <span className="swatch office" /> In office
           </span>
           <span className="legend-item">
-            <span className="swatch wfh" /> Not in office
+            <span className="swatch wfh" /> WFH
+          </span>
+          <span className="legend-item">
+            <span className="swatch unmarked" /> Unmarked
           </span>
           <span className="legend-item">
             <span className="swatch leave" /> Leave
@@ -280,11 +371,16 @@ function App() {
       <SettingsPanel
         open={settingsOpen}
         settings={appData.settings}
+        appData={appData}
+        viewYear={year}
+        viewMonth={month}
+        userEmail={user.email}
         onClose={() => {
           trackEvent("close_settings");
           setSettingsOpen(false);
         }}
         onChange={(settings) => setAppData((prev) => ({ ...prev, settings }))}
+        onSignOut={handleSignOut}
       />
     </div>
   );

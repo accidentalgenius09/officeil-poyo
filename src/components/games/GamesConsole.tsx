@@ -3,8 +3,9 @@ import { useEffect, useId, useState } from 'react'
 import { trackEvent } from '../../lib/analytics'
 import { SudokuGame } from './SudokuGame'
 import { MemoryGame } from './MemoryGame'
+import { Game2048 } from './Game2048'
 
-type GameId = 'sudoku' | 'memory'
+type GameId = 'sudoku' | 'memory' | '2048'
 
 type GamesConsoleProps = {
   open: boolean
@@ -22,6 +23,11 @@ const GAMES: { id: GameId; title: string; blurb: string }[] = [
     id: 'memory',
     title: 'Memory Match',
     blurb: 'Find every pair. A quick break between meetings.',
+  },
+  {
+    id: '2048',
+    title: '2048',
+    blurb: 'Swipe or use arrows. Merge tiles up to 2048.',
   },
 ]
 
@@ -88,6 +94,8 @@ export function GamesConsole({ open, onToggle, onClose }: GamesConsoleProps) {
               <SudokuGame onBack={() => setActiveGame(null)} />
             ) : activeGame === 'memory' ? (
               <MemoryGame onBack={() => setActiveGame(null)} />
+            ) : activeGame === '2048' ? (
+              <Game2048 onBack={() => setActiveGame(null)} />
             ) : (
               <>
                 <header className="games-header">
