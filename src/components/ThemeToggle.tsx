@@ -12,7 +12,8 @@ function getPreferredTheme(): ThemeMode {
   } catch {
     /* ignore */
   }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  // First visit / new login: always start in light mode
+  return 'light'
 }
 
 function applyTheme(mode: ThemeMode) {
