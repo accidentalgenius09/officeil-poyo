@@ -1,7 +1,7 @@
 .app {
   position: relative;
   min-height: 100vh;
-  padding: 2rem 1.25rem 5rem;
+  padding: 2rem 1.25rem 1.5rem;
   overflow-x: hidden;
 }
 
@@ -551,10 +551,19 @@
 
 .hint {
   flex-basis: 100%;
-  margin: 0;
+  margin: 0 0 1rem 0;
   text-align: center;
   font-size: 0.82rem;
   opacity: 0.9;
+}
+
+.copyright {
+  margin: 1rem 0 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  opacity: 0.85;
 }
 
 .settings-fab {
@@ -1284,7 +1293,7 @@
 
 @media (max-width: 640px) {
   .app {
-    padding: 1.25rem 0.85rem 2rem;
+    padding: 1.25rem 0.85rem 1.25rem;
   }
 
   .cards {

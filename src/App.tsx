@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { AppData, DayStatus } from './types'
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { AppData, DayStatus } from "./types";
 import {
   cacheAppData,
   computeStats,
@@ -12,144 +12,146 @@ import {
   monthStorageKey,
   resolveOfficeGoal,
   toDateKey,
-} from './lib/attendance'
-import { fetchAppData, persistAppData } from './lib/api'
-import { MonthHeader } from './components/MonthHeader'
-import { SummaryCards } from './components/SummaryCards'
-import { CalendarGrid } from './components/CalendarGrid'
-import { SettingsFab, SettingsPanel } from './components/SettingsPanel'
-import { GamesConsole } from './components/games/GamesConsole'
-import { ThemeToggle } from './components/ThemeToggle'
-import './App.css'
+} from "./lib/attendance";
+import { fetchAppData, persistAppData } from "./lib/api";
+import { MonthHeader } from "./components/MonthHeader";
+import { SummaryCards } from "./components/SummaryCards";
+import { CalendarGrid } from "./components/CalendarGrid";
+import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
+import { GamesConsole } from "./components/games/GamesConsole";
+import { ThemeToggle } from "./components/ThemeToggle";
+import "./App.css";
 
 function App() {
-  const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth())
-  const [appData, setAppData] = useState<AppData>(() => loadCachedAppData())
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [gamesOpen, setGamesOpen] = useState(false)
-  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const skipNextSave = useRef(true)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [appData, setAppData] = useState<AppData>(() => loadCachedAppData());
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [gamesOpen, setGamesOpen] = useState(false);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const skipNextSave = useRef(true);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const attendance = getMonthAttendance(appData.attendance, year, month)
-  const stats = computeStats(attendance, appData.settings)
-  const officeGoal = resolveOfficeGoal(year, month, appData.settings)
-  const profile = appData.settings.profile
+  const attendance = getMonthAttendance(appData.attendance, year, month);
+  const stats = computeStats(attendance, appData.settings);
+  const officeGoal = resolveOfficeGoal(year, month, appData.settings);
+  const profile = appData.settings.profile;
   const leaveDates = useMemo(
     () => leaveNoteByDate(appData.settings),
     [appData.settings],
-  )
+  );
   const holidayDates = useMemo(
     () => holidayNameByDate(appData.settings),
     [appData.settings],
-  )
+  );
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
 
-    ;(async () => {
+    (async () => {
       try {
-        const remote = await fetchAppData()
-        if (cancelled) return
+        const remote = await fetchAppData();
+        if (cancelled) return;
 
-        const local = loadCachedAppData()
+        const local = loadCachedAppData();
         const remoteEmpty =
           Object.keys(remote.attendance).length === 0 &&
           remote.settings.leaves.length === 0 &&
           remote.settings.holidays.length === 0 &&
           !remote.settings.profile.name &&
-          !remote.settings.profile.email
+          !remote.settings.profile.email;
         const localHasData =
           Object.keys(local.attendance).length > 0 ||
           local.settings.leaves.length > 0 ||
           local.settings.holidays.length > 0 ||
-          Boolean(local.settings.profile.name || local.settings.profile.email)
+          Boolean(local.settings.profile.name || local.settings.profile.email);
 
         if (remoteEmpty && localHasData) {
-          await persistAppData(local)
-          if (cancelled) return
-          setAppData(local)
+          await persistAppData(local);
+          if (cancelled) return;
+          setAppData(local);
         } else {
-          setAppData(remote)
-          cacheAppData(remote)
+          setAppData(remote);
+          cacheAppData(remote);
         }
-        setLoadState('ready')
+        setLoadState("ready");
       } catch {
-        if (cancelled) return
-        setLoadState('error')
+        if (cancelled) return;
+        setLoadState("error");
       } finally {
-        skipNextSave.current = true
+        skipNextSave.current = true;
       }
-    })()
+    })();
 
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (skipNextSave.current) {
-      skipNextSave.current = false
-      return
+      skipNextSave.current = false;
+      return;
     }
 
-    cacheAppData(appData)
+    cacheAppData(appData);
 
-    if (saveTimer.current) clearTimeout(saveTimer.current)
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       persistAppData(appData)
         .then(() => setSaveError(null))
         .catch(() =>
           setSaveError(
-            'Could not save to MongoDB. Check Atlas Network Access for your current IP.',
+            "Could not save to MongoDB. Check Atlas Network Access for your current IP.",
           ),
-        )
-    }, 400)
+        );
+    }, 400);
 
     return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-    }
-  }, [appData])
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [appData]);
 
   function goPrevMonth() {
     if (month === 0) {
-      setYear((y) => y - 1)
-      setMonth(11)
+      setYear((y) => y - 1);
+      setMonth(11);
     } else {
-      setMonth((m) => m - 1)
+      setMonth((m) => m - 1);
     }
   }
 
   function goNextMonth() {
     if (month === 11) {
-      setYear((y) => y + 1)
-      setMonth(0)
+      setYear((y) => y + 1);
+      setMonth(0);
     } else {
-      setMonth((m) => m + 1)
+      setMonth((m) => m + 1);
     }
   }
 
   function goToToday() {
-    const t = new Date()
-    setYear(t.getFullYear())
-    setMonth(t.getMonth())
+    const t = new Date();
+    setYear(t.getFullYear());
+    setMonth(t.getMonth());
   }
 
   function setDayStatus(day: number, status: DayStatus) {
-    const key = monthStorageKey(year, month)
-    const dateKey = toDateKey(year, month, day)
+    const key = monthStorageKey(year, month);
+    const dateKey = toDateKey(year, month, day);
 
     setAppData((prev) => {
-      const current = getMonthAttendance(prev.attendance, year, month)
-      const nextDays = { ...current.days }
+      const current = getMonthAttendance(prev.attendance, year, month);
+      const nextDays = { ...current.days };
 
       if (status === null) {
-        delete nextDays[dateKey]
+        delete nextDays[dateKey];
       } else {
-        nextDays[dateKey] = status
+        nextDays[dateKey] = status;
       }
 
       return {
@@ -162,19 +164,19 @@ function App() {
             days: nextDays,
           },
         },
-      }
-    })
+      };
+    });
   }
 
   function handleDayClick(day: number) {
-    const dateKey = toDateKey(year, month, day)
-    const current = attendance.days[dateKey] ?? null
-    setDayStatus(day, cycleStatus(current))
+    const dateKey = toDateKey(year, month, day);
+    const current = attendance.days[dateKey] ?? null;
+    setDayStatus(day, cycleStatus(current));
   }
 
   const brandSub = profile.name
-    ? [profile.name, profile.role].filter(Boolean).join(' · ')
-    : 'Track your in-office days'
+    ? [profile.name, profile.role].filter(Boolean).join(" · ")
+    : "Track your in-office days";
 
   return (
     <div className="app">
@@ -184,11 +186,13 @@ function App() {
         <header className="brand">
           <h1 className="brand-mark">Officeil Poyo?</h1>
           <p className="brand-sub">{brandSub}</p>
-          {loadState === 'loading' && <p className="sync-status">Loading from MongoDB…</p>}
-          {loadState === 'error' && (
+          {loadState === "loading" && (
+            <p className="sync-status">Loading from MongoDB…</p>
+          )}
+          {loadState === "error" && (
             <p className="sync-status sync-error">
-              Could not reach MongoDB. Showing local cache. If your IP changed, add it in Atlas →
-              Network Access.
+              Could not reach MongoDB. Showing local cache. If your IP changed,
+              add it in Atlas → Network Access.
             </p>
           )}
           {saveError && <p className="sync-status sync-error">{saveError}</p>}
@@ -206,7 +210,9 @@ function App() {
           goal={officeGoal}
           goDaily={profile.goDaily}
         />
-
+        <p className="hint">
+          Click a day to toggle office. Use settings to mark leave or holidays.
+        </p>
         <CalendarGrid
           year={year}
           month={month}
@@ -229,25 +235,26 @@ function App() {
           <span className="legend-item">
             <span className="swatch holiday" /> Holiday
           </span>
-          <p className="hint">
-            Click a day to toggle office. Use settings to mark leave or holidays.
-          </p>
         </footer>
+
+        <p className="copyright">
+          Copyright © {new Date().getFullYear()} Surjith K. All Rights Reserved.
+        </p>
       </main>
 
       <GamesConsole
         open={gamesOpen}
         onToggle={() => {
-          setGamesOpen((open) => !open)
-          setSettingsOpen(false)
+          setGamesOpen((open) => !open);
+          setSettingsOpen(false);
         }}
         onClose={() => setGamesOpen(false)}
       />
       <SettingsFab
         open={settingsOpen}
         onToggle={() => {
-          setSettingsOpen((open) => !open)
-          setGamesOpen(false)
+          setSettingsOpen((open) => !open);
+          setGamesOpen(false);
         }}
       />
       <SettingsPanel
@@ -257,7 +264,7 @@ function App() {
         onChange={(settings) => setAppData((prev) => ({ ...prev, settings }))}
       />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

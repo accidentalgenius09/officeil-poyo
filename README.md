@@ -101,3 +101,7 @@ api/
 Data saves to MongoDB automatically. If the database is unreachable, changes stay in local cache until the connection is restored.
 
 Sudoku progress and theme preference are stored only in the browser (`localStorage`).
+
+## License
+
+Copyright © Surjith K. All Rights Reserved. (Year in the app footer updates automatically.)
