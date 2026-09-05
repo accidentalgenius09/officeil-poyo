@@ -15,6 +15,7 @@ Track your monthly office visits — mark days in or out, plan leave, add holida
 - **Game console** — floating button above settings with quick break games:
   - **Sudoku** — unfinished boards save in the browser; finishing clears the save and starts a new shuffled puzzle
   - **Memory Match** — flip cards to find pairs
+- **Google Analytics** — visitor counts, country, device, plus custom events for in-app actions (no profile PII)
 
 ## Tech stack
 
@@ -22,7 +23,7 @@ Track your monthly office visits — mark days in or out, plan leave, add holida
 - Express API
 - MongoDB Atlas
 - [Phosphor Icons](https://phosphoricons.com/)
-- Google Analytics (`gtag.js`) — page views plus in-app events (attendance, theme, settings, games)
+- Google Analytics 4 (`gtag.js`, measurement ID `G-8VCWT5HNSF`)
 
 ## Setup
 
@@ -71,6 +72,40 @@ This starts:
 
 API routes are served from `api/index.js` (for example `/api/attendance`).
 
+### 5. Google Analytics
+
+The GA4 tag is already in `index.html`. In [Google Analytics](https://analytics.google.com):
+
+1. Open the property for measurement ID `G-8VCWT5HNSF`
+2. Confirm the web data stream uses your production URL
+3. After deploy, check **Reports → Realtime** while using the app
+4. Use **Reports → User → Demographics** for country and **Reports → Tech** for device
+
+#### Automatic (built into GA4)
+
+- Page views / sessions / users
+- Country and city (approx.)
+- Device category, browser, OS
+
+#### Custom in-app events
+
+Fired via `src/lib/analytics.ts` (`trackEvent`). Profile name and email are never sent.
+
+| Event | When |
+| --- | --- |
+| `toggle_attendance` | Calendar day status changes |
+| `change_month` | Prev / next / today |
+| `toggle_theme` | Light ↔ dark |
+| `open_settings` / `close_settings` | Settings panel |
+| `toggle_go_daily` | “Go to office daily” switch |
+| `set_office_goal` | Office-day goal blurred after edit |
+| `add_leave` / `remove_leave` | Leave entries |
+| `add_holiday` / `remove_holiday` | Holiday entries |
+| `open_games` / `close_games` | Game console |
+| `play_game` | Sudoku or Memory started |
+| `game_complete` | Puzzle / match finished |
+| `new_game` | Play again / new board |
+
 ## Scripts
 
 | Command | Description |
@@ -85,7 +120,7 @@ API routes are served from `api/index.js` (for example `/api/attendance`).
 src/
   components/          # Calendar, summary cards, settings, theme toggle, games
     games/             # Game console, Sudoku, Memory Match
-  lib/                 # Attendance logic, API client, Sudoku engine, analytics
+  lib/                 # Attendance, API client, Sudoku, analytics
   App.tsx              # Main app
 api/
   index.js             # Express + MongoDB API
@@ -102,8 +137,6 @@ api/
 Data saves to MongoDB automatically. If the database is unreachable, changes stay in local cache until the connection is restored.
 
 Sudoku progress and theme preference are stored only in the browser (`localStorage`).
-
-Page views, country, and device are collected by Google Analytics. In-app actions (attendance toggles, month navigation, theme, settings, games) are sent as custom events — no profile name/email is included.
 
 ## License
 
