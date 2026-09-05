@@ -4,23 +4,24 @@ Track your monthly office visits — mark days in office or WFH, plan leave, add
 
 ## Features
 
-- **Email / password auth** — each account stores its own attendance, profile, leave, and holidays in MongoDB
+- **Email / password auth** — register and sign in; each account has its own attendance, profile, leave, and holidays in MongoDB
+- **Password visibility toggle** — eye icon on the password field to show or hide
 - **Monthly calendar** — click a day to cycle **office → WFH → unmarked**
-- **Goal tracking** — see office days vs your monthly target and remaining working days
-- **Pace & streak** — “can I still hit the goal?” message, this week’s office count, and consecutive office-day streak
+- **Goal tracking** — office days vs monthly target, remaining working days, and WFH count
+- **Pace & streak** — “can I still hit the goal?” note, this week’s office days, and consecutive office-day streak
 - **Policy presets** — one-tap targets (every working day, 3×/week, 2×/week, Tue–Thu, classic 12)
 - **User profile** — name, email, role/team, and office-day goal
-- **Go to office daily?** — when enabled, the goal becomes every working day (leave & holidays excluded)
+- **Go to office daily?** — when enabled, the goal is every working day (full leave & holidays excluded)
 - **Leave** — full-day or half-day (AM/PM) ranges; full leave locks the day, half leave still allows office/WFH
 - **Holiday calendar** — named holidays, optional yearly recurrence, and one-click **India** pack import
-- **CSV export** — download the current month day-by-day, or a year summary (month name + office days)
-- **MongoDB sync** — per-user data in Atlas (with local cache fallback while signed in)
-- **Light / dark mode** — celestial toggle (top-right); choice is saved and follows system preference on first visit
-- **Toast alerts** — auth, sync, and settings validation errors via [react-hot-toast](https://react-hot-toast.com/)
+- **CSV export** — current month day-by-day, or a year summary (month name + office days)
+- **MongoDB sync** — per-user documents in Atlas (local cache fallback while signed in)
+- **Light / dark mode** — celestial toggle (top-right); saved in the browser; follows system preference on first visit
+- **Toast alerts** — auth, sync, and settings validation errors via [react-hot-toast](https://react-hot-toast.com/) (top-right)
 - **Game console** — floating button above settings:
   - **Sudoku** — unfinished boards save in the browser
   - **Memory Match** — flip cards to find pairs
-  - **2048** — merge tiles with arrows or swipe
+  - **2048** — merge tiles with arrow keys or swipe
 - **Google Analytics** — visitor counts, country, device, plus custom events for in-app actions (no profile PII)
 
 ## Tech stack
@@ -30,7 +31,7 @@ Track your monthly office visits — mark days in office or WFH, plan leave, add
 - MongoDB Atlas
 - [react-hot-toast](https://react-hot-toast.com/)
 - [Phosphor Icons](https://phosphoricons.com/)
-- Google Analytics 4 (`gtag.js`, measurement ID `G-8VCWT5HNSF`)
+- Google Analytics 4 (`gtag.js`, measurement ID `G-TE6H7QC05N`)
 
 ## Setup
 
@@ -58,6 +59,7 @@ AUTH_SECRET=change-me-to-a-long-random-string
 
 > If your IP changes, update **Network Access** in Atlas or the app will fall back to local cache.
 > For Vercel, Atlas must allow **`0.0.0.0/0`** (Vercel IPs are dynamic).
+> After changing `.env`, restart the API (`npm run dev`) so auth and MongoDB settings reload.
 
 ### 3. Run
 
@@ -84,13 +86,13 @@ Register an account on first visit, then mark attendance as usual.
 3. In Atlas → **Network Access**, allow `0.0.0.0/0`
 4. Deploy (or push to `main`)
 
-API routes are served from `api/index.js` (for example `/api/attendance`, `/api/auth/login`).
+API routes are served from `api/index.js` (for example `/api/attendance`, `/api/auth/login`, `/api/auth/register`).
 
 ### 5. Google Analytics
 
 The GA4 tag is already in `index.html`. In [Google Analytics](https://analytics.google.com):
 
-1. Open the property for measurement ID `G-8VCWT5HNSF`
+1. Open the property for measurement ID `G-TE6H7QC05N`
 2. Confirm the web data stream uses your production URL
 3. After deploy, check **Reports → Realtime** while using the app
 4. Use **Reports → User → Demographics** for country and **Reports → Tech** for device
@@ -136,22 +138,37 @@ Fired via `src/lib/analytics.ts` (`trackEvent`). Profile name and email are neve
 
 ```
 src/
-  components/          # Auth, calendar, summary, settings, theme, games
-    games/             # Game console, Sudoku, Memory Match, 2048
-  lib/                 # Attendance, API/auth, holidays, CSV export, presets, analytics
-  App.tsx              # Main app (requires sign-in)
-  main.tsx             # React root + react-hot-toast Toaster
+  components/
+    AuthScreen.tsx       # Sign in / register (+ password show/hide)
+    CalendarGrid.tsx     # Month grid (office / WFH / leave / holiday)
+    SummaryCards.tsx     # Goal, pace, streak, week insights
+    SettingsPanel.tsx    # Profile, presets, leave, holidays, CSV, sign out
+    ThemeToggle.tsx      # Light / dark celestial switch
+    games/               # Game console, Sudoku, Memory Match, 2048
+  lib/
+    api.ts               # Auth session + attendance API client
+    attendance.ts        # Calendar math, stats, normalize/cache
+    holidays.ts          # India holiday pack import
+    exportCsv.ts         # Month / year CSV download
+    presets.ts           # Policy preset definitions
+    analytics.ts         # GA4 custom events
+    sudoku.ts            # Sudoku helpers
+  App.tsx                # Main app (requires sign-in)
+  main.tsx               # React root + react-hot-toast Toaster (top-right)
 api/
-  index.js             # Express + MongoDB + auth API
+  index.js               # Express + MongoDB + auth API
 ```
 
 ## Usage
 
-1. **Register / sign in** with email and password
-2. Use the **theme toggle** (top-right) to switch light or dark mode
+1. **Register / sign in** with email and password (use the eye icon to show or hide the password)
+2. Use the **theme toggle** (top-right) for light or dark mode — preference is remembered
 3. Open **settings** (gear, bottom-right) for profile, policy presets, leave, holidays, CSV export, and sign out
 4. Click calendar days to cycle **office → WFH → unmarked**
-5. Open the **game console** (controller icon, above settings) for Sudoku, Memory Match, or 2048
+5. Watch **summary cards** for goal progress, pace warnings, week count, and streak
+6. Open the **game console** (controller icon, above settings) for Sudoku, Memory Match, or 2048
+
+Errors (auth, sync, validation) appear as toasts in the **top-right**.
 
 Data saves to your user document in MongoDB automatically. If the database is unreachable, changes stay in local cache until the connection is restored.
 
