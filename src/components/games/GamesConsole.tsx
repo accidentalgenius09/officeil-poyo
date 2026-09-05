@@ -1,5 +1,6 @@
 import { GameController } from '@phosphor-icons/react'
 import { useEffect, useId, useState } from 'react'
+import { trackEvent } from '../../lib/analytics'
 import { SudokuGame } from './SudokuGame'
 import { MemoryGame } from './MemoryGame'
 
@@ -105,7 +106,10 @@ export function GamesConsole({ open, onToggle, onClose }: GamesConsoleProps) {
                       <button
                         type="button"
                         className="games-pick"
-                        onClick={() => setActiveGame(game.id)}
+                        onClick={() => {
+                          setActiveGame(game.id)
+                          trackEvent('play_game', { game: game.id })
+                        }}
                       >
                         <span className="games-pick-title">{game.title}</span>
                         <span className="games-pick-blurb">{game.blurb}</span>

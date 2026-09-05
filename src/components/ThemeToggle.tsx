@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { trackEvent } from '../lib/analytics'
 
 export type ThemeMode = 'light' | 'dark'
 
@@ -37,7 +38,11 @@ export function ThemeToggle() {
   }, [theme])
 
   function toggle() {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light'
+      trackEvent('toggle_theme', { theme: next })
+      return next
+    })
   }
 
   const isDark = theme === 'dark'

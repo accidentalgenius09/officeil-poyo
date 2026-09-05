@@ -22,6 +22,7 @@ Track your monthly office visits — mark days in or out, plan leave, add holida
 - Express API
 - MongoDB Atlas
 - [Phosphor Icons](https://phosphoricons.com/)
+- Google Analytics (`gtag.js`) — page views plus in-app events (attendance, theme, settings, games)
 
 ## Setup
 
@@ -84,7 +85,7 @@ API routes are served from `api/index.js` (for example `/api/attendance`).
 src/
   components/          # Calendar, summary cards, settings, theme toggle, games
     games/             # Game console, Sudoku, Memory Match
-  lib/                 # Attendance logic, API client, Sudoku engine
+  lib/                 # Attendance logic, API client, Sudoku engine, analytics
   App.tsx              # Main app
 api/
   index.js             # Express + MongoDB API
@@ -101,6 +102,8 @@ api/
 Data saves to MongoDB automatically. If the database is unreachable, changes stay in local cache until the connection is restored.
 
 Sudoku progress and theme preference are stored only in the browser (`localStorage`).
+
+Page views, country, and device are collected by Google Analytics. In-app actions (attendance toggles, month navigation, theme, settings, games) are sent as custom events — no profile name/email is included.
 
 ## License
 
