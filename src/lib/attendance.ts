@@ -1,12 +1,15 @@
 import type {
+  ActivityStreak,
   AppData,
   CalendarSettings,
   DayStatus,
+  GoalReward,
   HolidayEntry,
   LeaveEntry,
   LeavePortion,
   MonthAttendance,
   MonthStats,
+  RewardKind,
   UserProfile,
 } from '../types'
 
@@ -30,7 +33,13 @@ export function emptyProfile(): UserProfile {
 }
 
 export function emptySettings(): CalendarSettings {
-  return { profile: emptyProfile(), leaves: [], holidays: [] }
+  return {
+    profile: emptyProfile(),
+    leaves: [],
+    holidays: [],
+    rewards: [],
+    activity: { lastActiveDate: null, streak: 0, behindMonths: [] },
+  }
 }
 
 export function emptyAppData(): AppData {
@@ -291,6 +300,96 @@ function normalizeProfile(raw: unknown): UserProfile {
   }
 }
 
+const REWARD_KINDS: RewardKind[] = [
+  'month_goal',
+  'perfect_year',
+  'streak_7',
+  'streak_30',
+  'streak_60',
+  'streak_100',
+  'first_office',
+  'hybrid_balancer',
+  'wfh_week',
+  'office_week',
+  'weekend_warrior',
+  'early_bird',
+  'clutch_finisher',
+  'overachiever',
+  'comeback',
+  'office_streak_5',
+  'office_streak_10',
+  'office_streak_20',
+  'no_gap_month',
+  'quarter_champion',
+  'half_year_hero',
+  'century_club',
+  'planner',
+  'holiday_curator',
+  'clean_calendar',
+  'new_year_starter',
+  'month_of_sundays',
+  'night_owl',
+]
+
+function normalizeReward(raw: unknown): GoalReward | null {
+  if (!raw || typeof raw !== 'object') return null
+  const entry = raw as Partial<GoalReward> & { monthKey?: string }
+  const kind: RewardKind =
+    entry.kind && REWARD_KINDS.includes(entry.kind) ? entry.kind : 'month_goal'
+
+  let key =
+    typeof entry.key === 'string' && entry.key
+      ? entry.key
+      : typeof entry.monthKey === 'string'
+        ? entry.monthKey
+        : ''
+
+  if (kind === 'month_goal') {
+    if (!/^\d{4}-\d{2}$/.test(key)) return null
+  } else if (kind === 'perfect_year' || kind === 'half_year_hero' || kind === 'new_year_starter') {
+    if (!/^\d{4}$/.test(key) && key !== kind) {
+      if (kind === 'perfect_year' || kind === 'half_year_hero') {
+        if (!/^\d{4}$/.test(key)) return null
+      }
+    }
+  } else if (!key) {
+    key = kind
+  }
+
+  return {
+    id: typeof entry.id === 'string' && entry.id ? entry.id : newId(),
+    kind,
+    key: key || kind,
+    monthKey: kind === 'month_goal' ? key : undefined,
+    earnedAt:
+      typeof entry.earnedAt === 'string' && entry.earnedAt
+        ? entry.earnedAt
+        : new Date().toISOString(),
+  }
+}
+
+function normalizeActivity(raw: unknown): ActivityStreak {
+  if (!raw || typeof raw !== 'object') {
+    return { lastActiveDate: null, streak: 0, behindMonths: [] }
+  }
+  const source = raw as Partial<ActivityStreak>
+  const lastActiveDate =
+    typeof source.lastActiveDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(source.lastActiveDate)
+      ? source.lastActiveDate
+      : null
+  const streak =
+    typeof source.streak === 'number' && Number.isFinite(source.streak)
+      ? Math.max(0, Math.round(source.streak))
+      : 0
+  const behindMonths = Array.isArray(source.behindMonths)
+    ? source.behindMonths.filter(
+        (v): v is string => typeof v === 'string' && /^\d{4}-\d{2}$/.test(v),
+      )
+    : []
+  return { lastActiveDate, streak, behindMonths }
+}
+
 export function normalizeSettings(raw: unknown): CalendarSettings {
   if (!raw || typeof raw !== 'object') return emptySettings()
   const source = raw as Partial<CalendarSettings>
@@ -302,10 +401,18 @@ export function normalizeSettings(raw: unknown): CalendarSettings {
         .map(normalizeHoliday)
         .filter((v): v is HolidayEntry => v !== null)
     : []
+  const rewards = Array.isArray(source.rewards)
+    ? source.rewards
+        .map(normalizeReward)
+        .filter((v): v is GoalReward => v !== null)
+        .sort((a, b) => b.earnedAt.localeCompare(a.earnedAt))
+    : []
   return {
     profile: normalizeProfile(source.profile),
     leaves,
     holidays,
+    rewards,
+    activity: normalizeActivity(source.activity),
   }
 }
 
@@ -377,6 +484,85 @@ export function cycleStatus(current: DayStatus): DayStatus {
 export function isWeekday(date: Date): boolean {
   const day = date.getDay()
   return day !== 0 && day !== 6
+}
+
+/** Weekday that is not a holiday or full-day leave. */
+export function isWorkingDay(
+  date: Date,
+  settings: CalendarSettings = emptySettings(),
+): boolean {
+  if (!isWeekday(date)) return false
+  const key = toDateKey(date.getFullYear(), date.getMonth(), date.getDate())
+  const holidays = holidayNameByDate(
+    settings,
+    date.getFullYear(),
+    date.getMonth(),
+  )
+  if (holidays.has(key)) return false
+  const leave = leaveCoverageByDate(settings).get(key)
+  if (leave?.portion === 'full') return false
+  return true
+}
+
+/**
+ * Most recent working day strictly before `from`
+ * (skips Sat/Sun, holidays, and full leave).
+ */
+export function findPreviousWorkingDay(
+  settings: CalendarSettings = emptySettings(),
+  from: Date = startOfToday(),
+): Date | null {
+  const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  cursor.setDate(cursor.getDate() - 1)
+
+  for (let i = 0; i < 31; i++) {
+    if (isWorkingDay(cursor, settings)) {
+      return new Date(
+        cursor.getFullYear(),
+        cursor.getMonth(),
+        cursor.getDate(),
+      )
+    }
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return null
+}
+
+/**
+ * If the previous working day is unmarked, set it to WFH.
+ * Returns updated app data, or null when nothing changed.
+ */
+export function autoMarkPreviousWorkingDayWfh(
+  data: AppData,
+  today: Date = startOfToday(),
+): AppData | null {
+  const prev = findPreviousWorkingDay(data.settings, today)
+  if (!prev) return null
+
+  const y = prev.getFullYear()
+  const m = prev.getMonth()
+  const d = prev.getDate()
+  const dateKey = toDateKey(y, m, d)
+  const monthKey = monthStorageKey(y, m)
+  const monthAtt = getMonthAttendance(data.attendance, y, m)
+  const current = monthAtt.days[dateKey]
+
+  if (current === 'office' || current === 'wfh') return null
+
+  return {
+    ...data,
+    attendance: {
+      ...data.attendance,
+      [monthKey]: {
+        year: y,
+        month: m,
+        days: {
+          ...monthAtt.days,
+          [dateKey]: 'wfh',
+        },
+      },
+    },
+  }
 }
 
 /** Weekdays from today through month end, excluding full leave and holidays. */

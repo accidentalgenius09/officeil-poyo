@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AppData, AuthUser, DayStatus } from "./types";
+import type { AppData, AuthUser, DayStatus, GoalReward } from "./types";
 import {
   cacheAppData,
   computeStats,
@@ -12,6 +12,7 @@ import {
   monthStorageKey,
   resolveOfficeGoal,
   toDateKey,
+  autoMarkPreviousWorkingDayWfh,
 } from "./lib/attendance";
 import {
   clearSession,
@@ -30,6 +31,19 @@ import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
 import { GamesConsole } from "./components/games/GamesConsole";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { toast } from 'react-hot-toast'
+import {
+  evaluateAchievementBadges,
+  markGoalCelebrated,
+  monthGoalRewardsForYear,
+  recordDailyActivity,
+  resolveGameRewardTheme,
+  rewardTitle,
+  wasGoalCelebrated,
+  withMonthReward,
+  withPerfectYearReward,
+  withStreakRewards,
+} from "./lib/rewards";
+import { RewardsPanel } from "./components/RewardsPanel";
 import "./App.css";
 
 function App() {
@@ -41,6 +55,7 @@ function App() {
   const [appData, setAppData] = useState<AppData>(() => loadCachedAppData());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [gamesOpen, setGamesOpen] = useState(false);
+  const [rewardsOpen, setRewardsOpen] = useState(false);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -65,6 +80,111 @@ function App() {
     () => holidayNameByDate(appData.settings, year, month),
     [appData.settings, year, month],
   );
+  const rewards = appData.settings.rewards ?? [];
+  const activity = appData.settings.activity ?? {
+    lastActiveDate: null,
+    streak: 0,
+    behindMonths: [],
+  };
+  const calendarYear = new Date().getFullYear();
+  const yearRewards = monthGoalRewardsForYear(rewards, calendarYear);
+  const rewardTheme = resolveGameRewardTheme(yearRewards.length);
+
+  useEffect(() => {
+    if (!user || loadState === "loading") return;
+    if (stats.daysLeftToGoal > 0 || officeGoal < 1) return;
+
+    const key = monthStorageKey(year, month);
+    const monthResult = withMonthReward(
+      appData.settings.rewards ?? [],
+      year,
+      month,
+    );
+    if (!monthResult.added) return;
+
+    setAppData((prev) => ({
+      ...prev,
+      settings: { ...prev.settings, rewards: monthResult.rewards },
+    }));
+
+    if (!wasGoalCelebrated(monthResult.added.id)) {
+      markGoalCelebrated(monthResult.added.id);
+      const yearCount = monthGoalRewardsForYear(
+        monthResult.rewards,
+        calendarYear,
+      ).length;
+      const theme = resolveGameRewardTheme(yearCount);
+      toast.success(
+        theme === "aurora"
+          ? "Goal met! Badge earned — Aurora console unlocked for this year."
+          : yearCount === 1
+            ? "Goal met! Badge earned — Gold console unlocked for this year."
+            : "Goal met! Monthly badge unlocked.",
+      );
+      trackEvent("goal_reward_earned", {
+        kind: "month_goal",
+        month: key,
+        badges: yearCount,
+        theme,
+      });
+    }
+  }, [
+    user,
+    loadState,
+    stats.daysLeftToGoal,
+    officeGoal,
+    year,
+    month,
+    calendarYear,
+    appData.settings.rewards,
+  ]);
+
+  useEffect(() => {
+    if (!user || loadState === "loading") return;
+
+    const yearsToCheck = new Set([calendarYear, year]);
+    let working = appData.settings.rewards ?? [];
+    const newlyAdded: GoalReward[] = [];
+
+    for (const y of yearsToCheck) {
+      const result = withPerfectYearReward(working, y);
+      working = result.rewards;
+      if (result.added) newlyAdded.push(result.added);
+    }
+
+    if (newlyAdded.length === 0) return;
+
+    setAppData((prev) => ({
+      ...prev,
+      settings: { ...prev.settings, rewards: working },
+    }));
+
+    for (const added of newlyAdded) {
+      if (wasGoalCelebrated(added.id)) continue;
+      markGoalCelebrated(added.id);
+      toast.success(
+        `Perfect year ${added.key}! You hit the goal every month.`,
+      );
+      trackEvent("goal_reward_earned", {
+        kind: "perfect_year",
+        year: added.key,
+      });
+    }
+  }, [user, loadState, calendarYear, year, appData.settings.rewards]);
+
+  // Auto-mark the previous working day as WFH when it was left unmarked.
+  useEffect(() => {
+    if (!user || loadState === "loading") return;
+
+    setAppData((prev) => {
+      const next = autoMarkPreviousWorkingDayWfh(prev);
+      if (!next) return prev;
+      queueMicrotask(() => {
+        trackEvent("auto_mark_wfh", { scope: "previous_working_day" });
+      });
+      return next;
+    });
+  }, [user, loadState, appData.settings.leaves, appData.settings.holidays]);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,9 +328,60 @@ function App() {
     setMonth(t.getMonth());
   }
 
+  // Evaluate achievement badges when attendance or settings change.
+  useEffect(() => {
+    if (!user || loadState === "loading") return;
+
+    setAppData((prev) => {
+      const result = evaluateAchievementBadges(prev, {
+        focusYear: year,
+        focusMonth: month,
+        localHour: new Date().getHours(),
+      });
+      if (result.added.length === 0) {
+        const behindChanged =
+          JSON.stringify(result.activity.behindMonths) !==
+          JSON.stringify(prev.settings.activity?.behindMonths ?? []);
+        if (!behindChanged) return prev;
+        return {
+          ...prev,
+          settings: { ...prev.settings, activity: result.activity },
+        };
+      }
+
+      queueMicrotask(() => {
+        for (const badge of result.added) {
+          if (wasGoalCelebrated(badge.id)) continue;
+          markGoalCelebrated(badge.id);
+          toast.success(`${rewardTitle(badge)} unlocked!`);
+          trackEvent("goal_reward_earned", { kind: badge.kind });
+        }
+      });
+
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          rewards: result.rewards,
+          activity: result.activity,
+        },
+      };
+    });
+  }, [
+    user,
+    loadState,
+    year,
+    month,
+    appData.attendance,
+    appData.settings.leaves,
+    appData.settings.holidays,
+    appData.settings.rewards,
+  ]);
+
   function setDayStatus(day: number, status: DayStatus) {
     const key = monthStorageKey(year, month);
     const dateKey = toDateKey(year, month, day);
+    const hour = new Date().getHours();
 
     trackEvent("toggle_attendance", {
       status: status ?? "unmarked",
@@ -227,7 +398,36 @@ function App() {
         nextDays[dateKey] = status;
       }
 
-      return {
+      const latestActivity = recordDailyActivity(
+        prev.settings.activity ?? {
+          lastActiveDate: null,
+          streak: 0,
+          behindMonths: [],
+        },
+      );
+      let nextRewards = prev.settings.rewards ?? [];
+      if (latestActivity.changed) {
+        const streakBadges = withStreakRewards(
+          nextRewards,
+          latestActivity.streak,
+          latestActivity.activity.lastActiveDate ?? dateKey,
+        );
+        nextRewards = streakBadges.rewards;
+        for (const badge of streakBadges.added) {
+          if (!wasGoalCelebrated(badge.id)) {
+            markGoalCelebrated(badge.id);
+            queueMicrotask(() => {
+              toast.success(`${rewardTitle(badge)} unlocked!`);
+              trackEvent("goal_reward_earned", {
+                kind: badge.kind,
+                streak: latestActivity.streak,
+              });
+            });
+          }
+        }
+      }
+
+      const draft: AppData = {
         ...prev,
         attendance: {
           ...prev.attendance,
@@ -236,6 +436,36 @@ function App() {
             month,
             days: nextDays,
           },
+        },
+        settings: {
+          ...prev.settings,
+          activity: latestActivity.activity,
+          rewards: nextRewards,
+        },
+      };
+
+      const achievements = evaluateAchievementBadges(draft, {
+        focusYear: year,
+        focusMonth: month,
+        localHour: hour,
+      });
+
+      for (const badge of achievements.added) {
+        if (!wasGoalCelebrated(badge.id)) {
+          markGoalCelebrated(badge.id);
+          queueMicrotask(() => {
+            toast.success(`${rewardTitle(badge)} unlocked!`);
+            trackEvent("goal_reward_earned", { kind: badge.kind });
+          });
+        }
+      }
+
+      return {
+        ...draft,
+        settings: {
+          ...draft.settings,
+          rewards: achievements.rewards,
+          activity: achievements.activity,
         },
       };
     });
@@ -252,6 +482,7 @@ function App() {
     setUser(null);
     setSettingsOpen(false);
     setGamesOpen(false);
+    setRewardsOpen(false);
   }
 
   if (authChecking) {
@@ -307,8 +538,8 @@ function App() {
           goDaily={profile.goDaily}
         />
         <p className="hint">
-          Click a day to cycle: office → WFH → unmarked. Use settings for leave,
-          holidays, export, and policy presets.
+          Click a day to cycle: office → WFH → unmarked. Unmarked previous
+          working days auto-fill as WFH. Open the trophy for badges.
         </p>
         <CalendarGrid
           year={year}
@@ -338,18 +569,49 @@ function App() {
         </footer>
 
         <p className="copyright">
-          Copyright © {new Date().getFullYear()} Surjith K. All Rights Reserved.
+          Copyright © {new Date().getFullYear()}{" "}
+          <a
+            href="https://www.linkedin.com/in/surjithk/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="copyright-link"
+          >
+            Surjith K
+          </a>
+          . All Rights Reserved.
         </p>
       </main>
 
+      <RewardsPanel
+        open={rewardsOpen}
+        rewards={rewards}
+        activity={activity}
+        currentYear={calendarYear}
+        onToggle={() => {
+          setRewardsOpen((open) => {
+            const next = !open;
+            trackEvent(next ? "open_rewards" : "close_rewards");
+            return next;
+          });
+          setGamesOpen(false);
+          setSettingsOpen(false);
+        }}
+        onClose={() => {
+          trackEvent("close_rewards");
+          setRewardsOpen(false);
+        }}
+      />
       <GamesConsole
         open={gamesOpen}
+        rewardTheme={rewardTheme}
+        rewardCount={yearRewards.length}
         onToggle={() => {
           setGamesOpen((open) => {
             const next = !open;
             trackEvent(next ? "open_games" : "close_games");
             return next;
           });
+          setRewardsOpen(false);
           setSettingsOpen(false);
         }}
         onClose={() => {
@@ -365,6 +627,7 @@ function App() {
             trackEvent(next ? "open_settings" : "close_settings");
             return next;
           });
+          setRewardsOpen(false);
           setGamesOpen(false);
         }}
       />

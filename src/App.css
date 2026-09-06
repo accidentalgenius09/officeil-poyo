@@ -364,6 +364,64 @@
   border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
 }
 
+.card-reward {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.reward-met {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--brand-deep);
+  font-weight: 600;
+}
+
+.card-rewards .rewards-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.55rem;
+}
+
+.rewards-unlock {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand-deep);
+}
+
+.rewards-badges {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.reward-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.reward-badge.current {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
 .card-value-sm .card-emphasis {
   font-size: clamp(1.55rem, 3.2vw, 1.9rem);
 }
@@ -611,6 +669,18 @@
   opacity: 0.85;
 }
 
+.copyright-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.copyright-link:hover {
+  color: var(--brand-deep);
+}
+
 .settings-fab {
   position: fixed;
   right: 1.25rem;
@@ -647,6 +717,54 @@
   transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
+.rewards-fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 8.75rem;
+  z-index: 40;
+  width: 3.25rem;
+  height: 3.25rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #142a24;
+  cursor: pointer;
+  box-shadow: 0 14px 30px rgba(20, 42, 36, 0.22);
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.rewards-fab.has-badges {
+  background: linear-gradient(145deg, #c9a227, #8a6a12);
+}
+
+.rewards-fab:hover {
+  transform: translateY(-2px) scale(1.04);
+  filter: brightness(1.05);
+}
+
+.rewards-fab.open {
+  filter: brightness(0.95);
+}
+
+.rewards-fab-count {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.15rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--surface-solid);
+  color: var(--brand-deep);
+  border: 1px solid var(--border-strong);
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
 .games-fab:hover {
   transform: translateY(-2px) scale(1.04);
   background: var(--brand-deep);
@@ -673,7 +791,7 @@
 .games-panel {
   position: absolute;
   right: 1.25rem;
-  bottom: 8.75rem;
+  bottom: 12.5rem;
   width: min(420px, calc(100vw - 2rem));
   max-height: min(78vh, 680px);
   overflow: auto;
@@ -683,6 +801,141 @@
   background: var(--surface-solid);
   box-shadow: var(--shadow);
   animation: settings-rise 0.22s ease-out both;
+}
+
+.rewards-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+.rewards-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: var(--overlay);
+  cursor: pointer;
+}
+
+.rewards-panel {
+  position: absolute;
+  right: 1.25rem;
+  bottom: 12.5rem;
+  width: min(420px, calc(100vw - 2rem));
+  max-height: min(78vh, 680px);
+  overflow: auto;
+  padding: 1.15rem 1.15rem 1.35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  animation: settings-rise 0.22s ease-out both;
+}
+
+.rewards-progress-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 420px) {
+  .rewards-progress-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rewards-progress-card {
+  padding: 0.75rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-tint);
+}
+
+.rewards-progress-value {
+  margin: 0.35rem 0 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--brand-deep);
+}
+
+.rewards-panel-intro {
+  margin: 0 0 1rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.rewards-empty {
+  margin: 0;
+  padding: 0.85rem 0.9rem;
+  border-radius: 12px;
+  background: var(--panel-tint);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.rewards-years {
+  display: grid;
+  gap: 1rem;
+}
+
+.rewards-year-block h3 {
+  margin: 0 0 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--brand-deep);
+}
+
+.rewards-year-block h3 span {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.rewards-detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.rewards-detail-list li {
+  padding: 0.7rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-tint);
+}
+
+.rewards-detail-main {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  color: var(--accent);
+}
+
+.rewards-detail-main strong {
+  display: block;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.rewards-detail-main p {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
 }
 
 .games-header {
@@ -701,10 +954,78 @@
 }
 
 .games-intro {
-  margin: 0 0 1rem;
+  margin: 0 0 0.65rem;
   color: var(--ink-soft);
   font-size: 0.92rem;
   line-height: 1.45;
+}
+
+.games-reward-note {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--brand-deep);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.games-reward-note.muted {
+  border-color: var(--border);
+  background: var(--panel-tint);
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.games-fab.theme-gold {
+  background: linear-gradient(145deg, #c9a227, #8a6a12);
+  border-color: #b8892d;
+}
+
+.games-fab.theme-aurora {
+  background: linear-gradient(145deg, #4dba92, #3d7ab8, #b8892d);
+  border-color: #4dba92;
+}
+
+.games-panel.theme-gold {
+  border-color: color-mix(in srgb, #b8892d 55%, var(--border));
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px color-mix(in srgb, #b8892d 25%, transparent);
+}
+
+.games-panel.theme-gold .games-header h2 {
+  color: #8a6a12;
+}
+
+[data-theme='dark'] .games-panel.theme-gold .games-header h2 {
+  color: #e0c56a;
+}
+
+.games-panel.theme-aurora {
+  border-color: color-mix(in srgb, #4dba92 45%, var(--border));
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, #4dba92 12%, var(--surface-solid)),
+      color-mix(in srgb, #3d7ab8 10%, var(--surface-solid)),
+      var(--surface-solid)
+    );
+}
+
+.games-panel.theme-aurora .games-header h2 {
+  background: linear-gradient(90deg, #1b4d3e, #3d7ab8, #b8892d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+[data-theme='dark'] .games-panel.theme-aurora .games-header h2 {
+  background: linear-gradient(90deg, #8fd4b8, #7eb8e8, #e0c56a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .games-list {
@@ -1384,6 +1705,11 @@
     bottom: 4.75rem;
   }
 
+  .rewards-fab {
+    right: 1rem;
+    bottom: 8.5rem;
+  }
+
   .settings-panel {
     right: 0.75rem;
     left: 0.75rem;
@@ -1391,11 +1717,12 @@
     bottom: 4.75rem;
   }
 
-  .games-panel {
+  .games-panel,
+  .rewards-panel {
     right: 0.75rem;
     left: 0.75rem;
     width: auto;
-    bottom: 8.5rem;
+    bottom: 12.25rem;
   }
 
   .settings-form {
@@ -1694,8 +2021,10 @@
   .progress-fill,
   .settings-fab,
   .games-fab,
+  .rewards-fab,
   .settings-panel,
   .games-panel,
+  .rewards-panel,
   .memory-face,
   .theme-toggle,
   .theme-orb,

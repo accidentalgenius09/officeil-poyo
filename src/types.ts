@@ -34,10 +34,67 @@ export type UserProfile = {
   officeDaysGoal: number
 }
 
+export type RewardKind =
+  | 'month_goal'
+  | 'perfect_year'
+  | 'streak_7'
+  | 'streak_30'
+  | 'streak_60'
+  | 'streak_100'
+  | 'first_office'
+  | 'hybrid_balancer'
+  | 'wfh_week'
+  | 'office_week'
+  | 'weekend_warrior'
+  | 'early_bird'
+  | 'clutch_finisher'
+  | 'overachiever'
+  | 'comeback'
+  | 'office_streak_5'
+  | 'office_streak_10'
+  | 'office_streak_20'
+  | 'no_gap_month'
+  | 'quarter_champion'
+  | 'half_year_hero'
+  | 'century_club'
+  | 'planner'
+  | 'holiday_curator'
+  | 'clean_calendar'
+  | 'new_year_starter'
+  | 'month_of_sundays'
+  | 'night_owl'
+
+/** Badge earned for goals, streaks, and achievements. */
+export type GoalReward = {
+  id: string
+  kind: RewardKind
+  /**
+   * month_goal / monthly badges → YYYY-MM
+   * perfect_year / half_year → YYYY
+   * quarter_champion → YYYY-Qn
+   * once badges → kind string
+   * week badges → week-start YYYY-MM-DD
+   */
+  key: string
+  earnedAt: string // ISO
+  /** @deprecated legacy month_goal field — mirrored into key */
+  monthKey?: string
+}
+
+/** Daily logging streak for consecutive days with calendar updates. */
+export type ActivityStreak = {
+  lastActiveDate: string | null // YYYY-MM-DD
+  streak: number
+  /** Month keys where pace became impossible (for Comeback badge). */
+  behindMonths: string[]
+}
+
 export type CalendarSettings = {
   profile: UserProfile
   leaves: LeaveEntry[]
   holidays: HolidayEntry[]
+  rewards: GoalReward[]
+  activity: ActivityStreak
 }
 
 export type AppData = {
