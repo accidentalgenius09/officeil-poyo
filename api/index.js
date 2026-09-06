@@ -34,11 +34,19 @@ const emptySettings = {
   },
   leaves: [],
   holidays: [],
+  rewards: [],
+  activity: { lastActiveDate: null, streak: 0, behindMonths: [] },
 }
 
 const emptyAppData = () => ({
   attendance: {},
-  settings: { ...emptySettings, leaves: [], holidays: [] },
+  settings: {
+    ...emptySettings,
+    leaves: [],
+    holidays: [],
+    rewards: [],
+    activity: { lastActiveDate: null, streak: 0, behindMonths: [] },
+  },
 })
 
 const app = express()

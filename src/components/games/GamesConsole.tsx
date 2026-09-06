@@ -1,6 +1,10 @@
 import { GameController } from '@phosphor-icons/react'
 import { useEffect, useId, useState } from 'react'
 import { trackEvent } from '../../lib/analytics'
+import {
+  gameRewardThemeLabel,
+  type GameRewardTheme,
+} from '../../lib/rewards'
 import { SudokuGame } from './SudokuGame'
 import { MemoryGame } from './MemoryGame'
 import { Game2048 } from './Game2048'
@@ -11,6 +15,8 @@ type GamesConsoleProps = {
   open: boolean
   onToggle: () => void
   onClose: () => void
+  rewardTheme?: GameRewardTheme
+  rewardCount?: number
 }
 
 const GAMES: { id: GameId; title: string; blurb: string }[] = [
@@ -34,14 +40,16 @@ const GAMES: { id: GameId; title: string; blurb: string }[] = [
 export function GamesFab({
   open,
   onToggle,
+  rewardTheme = 'default',
 }: {
   open: boolean
   onToggle: () => void
+  rewardTheme?: GameRewardTheme
 }) {
   return (
     <button
       type="button"
-      className={`games-fab${open ? ' open' : ''}`}
+      className={`games-fab${open ? ' open' : ''}${rewardTheme !== 'default' ? ` theme-${rewardTheme}` : ''}`}
       onClick={onToggle}
       aria-label={open ? 'Close game console' : 'Open game console'}
       aria-expanded={open}
@@ -51,7 +59,13 @@ export function GamesFab({
   )
 }
 
-export function GamesConsole({ open, onToggle, onClose }: GamesConsoleProps) {
+export function GamesConsole({
+  open,
+  onToggle,
+  onClose,
+  rewardTheme = 'default',
+  rewardCount = 0,
+}: GamesConsoleProps) {
   const titleId = useId()
   const [activeGame, setActiveGame] = useState<GameId | null>(null)
 
@@ -74,7 +88,7 @@ export function GamesConsole({ open, onToggle, onClose }: GamesConsoleProps) {
 
   return (
     <>
-      <GamesFab open={open} onToggle={onToggle} />
+      <GamesFab open={open} onToggle={onToggle} rewardTheme={rewardTheme} />
 
       {open && (
         <div className="games-root">
@@ -85,7 +99,7 @@ export function GamesConsole({ open, onToggle, onClose }: GamesConsoleProps) {
             onClick={onClose}
           />
           <aside
-            className="games-panel"
+            className={`games-panel${rewardTheme !== 'default' ? ` theme-${rewardTheme}` : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
@@ -108,6 +122,19 @@ export function GamesConsole({ open, onToggle, onClose }: GamesConsoleProps) {
                   Pick a quick game for a break. Sudoku keeps your spot if you
                   leave mid-puzzle.
                 </p>
+                {rewardCount > 0 ? (
+                  <p className="games-reward-note">
+                    Reward unlocked: {gameRewardThemeLabel(rewardTheme)}
+                    {rewardCount >= 3
+                      ? ' (3+ badges this year)'
+                      : ' (from this year’s goal badges)'}
+                  </p>
+                ) : (
+                  <p className="games-reward-note muted">
+                    Hit a monthly office goal this year to unlock a gold console
+                    theme. Themes reset each calendar year.
+                  </p>
+                )}
                 <ul className="games-list">
                   {GAMES.map((game) => (
                     <li key={game.id}>
