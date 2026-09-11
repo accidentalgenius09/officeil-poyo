@@ -2,7 +2,9 @@ import type {
   ActivityStreak,
   AppData,
   CalendarSettings,
+  DayRecord,
   DayStatus,
+  DayValue,
   GoalReward,
   HolidayEntry,
   LeaveEntry,
@@ -469,6 +471,71 @@ export function getMonthAttendance(
   return all[key] ?? emptyMonth(year, month)
 }
 
+export function isDayRecord(value: unknown): value is DayRecord {
+  return Boolean(value && typeof value === 'object' && 'status' in (value as object))
+}
+
+/** Resolve attendance status from a legacy string or DayRecord. */
+export function getDayStatus(
+  days: Record<string, DayValue>,
+  key: string,
+): DayStatus {
+  const value = days[key]
+  if (value == null) return null
+  if (value === 'office' || value === 'wfh') return value
+  if (isDayRecord(value)) {
+    return value.status === 'office' || value.status === 'wfh' ? value.status : null
+  }
+  return null
+}
+
+export function getDayRecord(
+  days: Record<string, DayValue>,
+  key: string,
+): DayRecord {
+  const value = days[key]
+  if (value == null) return { status: null }
+  if (value === 'office' || value === 'wfh') return { status: value }
+  if (isDayRecord(value)) {
+    const status =
+      value.status === 'office' || value.status === 'wfh' ? value.status : null
+    const note = typeof value.note === 'string' ? value.note.trim() : ''
+    const summary =
+      typeof value.summary === 'string' ? value.summary.trim() : ''
+    return {
+      status,
+      ...(note ? { note } : {}),
+      ...(summary ? { summary } : {}),
+    }
+  }
+  return { status: null }
+}
+
+export function hasWorkStatus(
+  days: Record<string, DayValue>,
+  key: string,
+): boolean {
+  const record = getDayRecord(days, key)
+  return Boolean(record.note || record.summary)
+}
+
+/** Compact storage: plain status when no note/summary; omit when empty. */
+export function dayValueFromRecord(
+  record: DayRecord,
+): DayValue | undefined {
+  const status =
+    record.status === 'office' || record.status === 'wfh' ? record.status : null
+  const note = record.note?.trim() || undefined
+  const summary = record.summary?.trim() || undefined
+  if (!status && !note && !summary) return undefined
+  if (status && !note && !summary) return status
+  return {
+    status,
+    ...(note ? { note } : {}),
+    ...(summary ? { summary } : {}),
+  }
+}
+
 /** Unmarked does not count; only explicit office status. */
 export function isInOffice(status: DayStatus | undefined): boolean {
   return status === 'office'
@@ -545,7 +612,7 @@ export function autoMarkPreviousWorkingDayWfh(
   const dateKey = toDateKey(y, m, d)
   const monthKey = monthStorageKey(y, m)
   const monthAtt = getMonthAttendance(data.attendance, y, m)
-  const current = monthAtt.days[dateKey]
+  const current = getDayStatus(monthAtt.days, dateKey)
 
   if (current === 'office' || current === 'wfh') return null
 
@@ -643,7 +710,7 @@ export function countWeekOfficeDays(
       d.getMonth(),
     )
     const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate())
-    if (isInOffice(monthAtt.days[key])) count += 1
+    if (isInOffice(getDayStatus(monthAtt.days, key))) count += 1
   }
   return count
 }
@@ -675,7 +742,7 @@ export function computeOfficeStreak(
     }
 
     const monthAtt = getMonthAttendance(attendanceMap, y, m)
-    if (isInOffice(monthAtt.days[key])) {
+    if (isInOffice(getDayStatus(monthAtt.days, key))) {
       streak += 1
       cursor.setDate(cursor.getDate() - 1)
       continue
@@ -719,8 +786,9 @@ export function computeStats(
   let daysWfh = 0
   for (let day = 1; day <= totalDaysInMonth; day++) {
     const key = toDateKey(year, month, day)
-    if (days[key] === 'office') daysInOffice += 1
-    else if (days[key] === 'wfh') daysWfh += 1
+    const status = getDayStatus(days, key)
+    if (status === 'office') daysInOffice += 1
+    else if (status === 'wfh') daysWfh += 1
   }
 
   const daysLeftToGoal = Math.max(0, goal - daysInOffice)

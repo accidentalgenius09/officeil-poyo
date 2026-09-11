@@ -3,7 +3,8 @@ import type { AppData, AuthUser, DayStatus, GoalReward } from "./types";
 import {
   cacheAppData,
   computeStats,
-  cycleStatus,
+  dayValueFromRecord,
+  getDayRecord,
   getMonthAttendance,
   holidayNameByDate,
   leaveCoverageByDate,
@@ -16,6 +17,7 @@ import {
 } from "./lib/attendance";
 import {
   clearSession,
+  elaborateWorkStatus,
   fetchAppData,
   fetchMe,
   getStoredToken,
@@ -27,22 +29,28 @@ import { AuthScreen } from "./components/AuthScreen";
 import { MonthHeader } from "./components/MonthHeader";
 import { SummaryCards } from "./components/SummaryCards";
 import { CalendarGrid } from "./components/CalendarGrid";
+import { DayStatusPanel } from "./components/DayStatusPanel";
 import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
 import { GamesConsole } from "./components/games/GamesConsole";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { toast } from 'react-hot-toast'
 import {
   evaluateAchievementBadges,
-  markGoalCelebrated,
+  claimGoalCelebration,
   monthGoalRewardsForYear,
   recordDailyActivity,
   resolveGameRewardTheme,
   rewardTitle,
-  wasGoalCelebrated,
+  rewardToastId,
   withMonthReward,
   withPerfectYearReward,
   withStreakRewards,
 } from "./lib/rewards";
+import {
+  collectDueReminders,
+  deliverReminders,
+  getNotificationPermission,
+} from "./lib/reminders";
 import { RewardsPanel } from "./components/RewardsPanel";
 import "./App.css";
 
@@ -56,6 +64,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [gamesOpen, setGamesOpen] = useState(false);
   const [rewardsOpen, setRewardsOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -107,8 +116,7 @@ function App() {
       settings: { ...prev.settings, rewards: monthResult.rewards },
     }));
 
-    if (!wasGoalCelebrated(monthResult.added.id)) {
-      markGoalCelebrated(monthResult.added.id);
+    if (claimGoalCelebration(monthResult.added)) {
       const yearCount = monthGoalRewardsForYear(
         monthResult.rewards,
         calendarYear,
@@ -120,6 +128,7 @@ function App() {
           : yearCount === 1
             ? "Goal met! Badge earned — Gold console unlocked for this year."
             : "Goal met! Monthly badge unlocked.",
+        { id: rewardToastId(monthResult.added) },
       );
       trackEvent("goal_reward_earned", {
         kind: "month_goal",
@@ -160,10 +169,10 @@ function App() {
     }));
 
     for (const added of newlyAdded) {
-      if (wasGoalCelebrated(added.id)) continue;
-      markGoalCelebrated(added.id);
+      if (!claimGoalCelebration(added)) continue;
       toast.success(
         `Perfect year ${added.key}! You hit the goal every month.`,
+        { id: rewardToastId(added) },
       );
       trackEvent("goal_reward_earned", {
         kind: "perfect_year",
@@ -185,6 +194,31 @@ function App() {
       return next;
     });
   }, [user, loadState, appData.settings.leaves, appData.settings.holidays]);
+
+  // Daily reminders: unmarked today + on-the-edge pace (toast + browser notification if allowed).
+  useEffect(() => {
+    if (!user || loadState !== "ready") return;
+
+    const due = collectDueReminders(appData);
+    if (due.length === 0) return;
+
+    deliverReminders(due, {
+      toast: (message, opts) =>
+        toast(message, {
+          duration: opts?.duration ?? 6000,
+          id: opts?.id,
+        }),
+      useBrowserNotifications: getNotificationPermission() === "granted",
+    });
+  }, [
+    user,
+    loadState,
+    appData.attendance,
+    appData.settings.leaves,
+    appData.settings.holidays,
+    appData.settings.profile.goDaily,
+    appData.settings.profile.officeDaysGoal,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -351,9 +385,10 @@ function App() {
 
       queueMicrotask(() => {
         for (const badge of result.added) {
-          if (wasGoalCelebrated(badge.id)) continue;
-          markGoalCelebrated(badge.id);
-          toast.success(`${rewardTitle(badge)} unlocked!`);
+          if (!claimGoalCelebration(badge)) continue;
+          toast.success(`${rewardTitle(badge)} unlocked!`, {
+            id: rewardToastId(badge),
+          });
           trackEvent("goal_reward_earned", { kind: badge.kind });
         }
       });
@@ -390,12 +425,18 @@ function App() {
 
     setAppData((prev) => {
       const current = getMonthAttendance(prev.attendance, year, month);
+      const existing = getDayRecord(current.days, dateKey);
       const nextDays = { ...current.days };
+      const encoded = dayValueFromRecord({
+        status,
+        note: existing.note,
+        summary: existing.summary,
+      });
 
-      if (status === null) {
+      if (encoded === undefined) {
         delete nextDays[dateKey];
       } else {
-        nextDays[dateKey] = status;
+        nextDays[dateKey] = encoded;
       }
 
       const latestActivity = recordDailyActivity(
@@ -414,16 +455,16 @@ function App() {
         );
         nextRewards = streakBadges.rewards;
         for (const badge of streakBadges.added) {
-          if (!wasGoalCelebrated(badge.id)) {
-            markGoalCelebrated(badge.id);
-            queueMicrotask(() => {
-              toast.success(`${rewardTitle(badge)} unlocked!`);
-              trackEvent("goal_reward_earned", {
-                kind: badge.kind,
-                streak: latestActivity.streak,
-              });
+          if (!claimGoalCelebration(badge)) continue;
+          queueMicrotask(() => {
+            toast.success(`${rewardTitle(badge)} unlocked!`, {
+              id: rewardToastId(badge),
             });
-          }
+            trackEvent("goal_reward_earned", {
+              kind: badge.kind,
+              streak: latestActivity.streak,
+            });
+          });
         }
       }
 
@@ -451,13 +492,13 @@ function App() {
       });
 
       for (const badge of achievements.added) {
-        if (!wasGoalCelebrated(badge.id)) {
-          markGoalCelebrated(badge.id);
-          queueMicrotask(() => {
-            toast.success(`${rewardTitle(badge)} unlocked!`);
-            trackEvent("goal_reward_earned", { kind: badge.kind });
+        if (!claimGoalCelebration(badge)) continue;
+        queueMicrotask(() => {
+          toast.success(`${rewardTitle(badge)} unlocked!`, {
+            id: rewardToastId(badge),
           });
-        }
+          trackEvent("goal_reward_earned", { kind: badge.kind });
+        });
       }
 
       return {
@@ -471,10 +512,53 @@ function App() {
     });
   }
 
-  function handleDayClick(day: number) {
+  function saveDayWorkStatus(
+    day: number,
+    input: { note: string; summary?: string; status?: DayStatus },
+  ) {
+    const key = monthStorageKey(year, month);
     const dateKey = toDateKey(year, month, day);
-    const current = attendance.days[dateKey] ?? null;
-    setDayStatus(day, cycleStatus(current));
+
+    setAppData((prev) => {
+      const current = getMonthAttendance(prev.attendance, year, month);
+      const existing = getDayRecord(current.days, dateKey);
+      const nextDays = { ...current.days };
+      const encoded = dayValueFromRecord({
+        status: input.status !== undefined ? input.status : existing.status,
+        note: input.note,
+        summary: input.summary,
+      });
+
+      if (encoded === undefined) {
+        delete nextDays[dateKey];
+      } else {
+        nextDays[dateKey] = encoded;
+      }
+
+      return {
+        ...prev,
+        attendance: {
+          ...prev.attendance,
+          [key]: {
+            year,
+            month,
+            days: nextDays,
+          },
+        },
+      };
+    });
+
+    trackEvent("save_work_status", {
+      hasSummary: Boolean(input.summary),
+      month: key,
+    });
+  }
+
+  function handleDayClick(day: number) {
+    setSelectedDay(day);
+    setSettingsOpen(false);
+    setGamesOpen(false);
+    setRewardsOpen(false);
   }
 
   function handleSignOut() {
@@ -483,6 +567,7 @@ function App() {
     setSettingsOpen(false);
     setGamesOpen(false);
     setRewardsOpen(false);
+    setSelectedDay(null);
   }
 
   if (authChecking) {
@@ -538,8 +623,7 @@ function App() {
           goDaily={profile.goDaily}
         />
         <p className="hint">
-          Click a day to cycle: office → WFH → unmarked. Unmarked previous
-          working days auto-fill as WFH. Open the trophy for badges.
+          Click a day to set Office / WFH and add an optional work status note.
         </p>
         <CalendarGrid
           year={year}
@@ -547,6 +631,7 @@ function App() {
           days={attendance.days}
           leaveDates={leaveDates}
           holidayDates={holidayDates}
+          selectedDay={selectedDay}
           onDayClick={handleDayClick}
         />
 
@@ -582,6 +667,45 @@ function App() {
         </p>
       </main>
 
+      {selectedDay !== null && (
+        <DayStatusPanel
+          open
+          dateKey={toDateKey(year, month, selectedDay)}
+          dateLabel={new Date(year, month, selectedDay).toLocaleDateString(
+            undefined,
+            {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            },
+          )}
+          record={getDayRecord(
+            attendance.days,
+            toDateKey(year, month, selectedDay),
+          )}
+          onClose={() => setSelectedDay(null)}
+          onStatusChange={(status) => setDayStatus(selectedDay, status)}
+          onSaveNote={({ note, summary }) => {
+            saveDayWorkStatus(selectedDay, { note, summary });
+          }}
+          onElaborateAndSave={async ({ note }) => {
+            const dateKey = toDateKey(year, month, selectedDay);
+            const status = getDayRecord(attendance.days, dateKey).status;
+            trackEvent("elaborate_work_status", {
+              status: status ?? "unmarked",
+            });
+            const result = await elaborateWorkStatus({ note });
+            saveDayWorkStatus(selectedDay, {
+              note: "",
+              summary: result.summary,
+              status,
+            });
+            return result;
+          }}
+        />
+      )}
+
       <RewardsPanel
         open={rewardsOpen}
         rewards={rewards}
@@ -595,6 +719,7 @@ function App() {
           });
           setGamesOpen(false);
           setSettingsOpen(false);
+          setSelectedDay(null);
         }}
         onClose={() => {
           trackEvent("close_rewards");
@@ -613,6 +738,7 @@ function App() {
           });
           setRewardsOpen(false);
           setSettingsOpen(false);
+          setSelectedDay(null);
         }}
         onClose={() => {
           trackEvent("close_games");
@@ -629,6 +755,7 @@ function App() {
           });
           setRewardsOpen(false);
           setGamesOpen(false);
+          setSelectedDay(null);
         }}
       />
       <SettingsPanel
