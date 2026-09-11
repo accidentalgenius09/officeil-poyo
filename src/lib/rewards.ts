@@ -11,12 +11,11 @@ import {
   computeOfficeStreak,
   countWorkingDaysInMonth,
   daysInMonth,
+  getDayStatus,
   getMonthAttendance,
-  isInOffice,
   isWeekday,
   isWorkingDay,
   monthStorageKey,
-  newId,
   resolveOfficeGoal,
   startOfToday,
   toDateKey,
@@ -253,7 +252,7 @@ function sortRewards(rewards: GoalReward[]): GoalReward[] {
 
 function makeBadge(kind: RewardKind, key: string): GoalReward {
   return {
-    id: newId(),
+    id: `${kind}:${key}`,
     kind,
     key,
     monthKey: kind === 'month_goal' ? key : undefined,
@@ -421,7 +420,7 @@ function countStatusInWeek(
       d.getMonth(),
     )
     const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate())
-    if (att.days[key] === status) count += 1
+    if (getDayStatus(att.days, key) === status) count += 1
   }
   return count
 }
@@ -431,8 +430,8 @@ function countOfficeAllTime(
 ): number {
   let count = 0
   for (const month of Object.values(attendance)) {
-    for (const status of Object.values(month.days)) {
-      if (status === 'office') count += 1
+    for (const key of Object.keys(month.days)) {
+      if (getDayStatus(month.days, key) === 'office') count += 1
     }
   }
   return count
@@ -449,7 +448,7 @@ function monthHasNoGaps(
     const date = new Date(year, month, day)
     if (!isWorkingDay(date, data.settings)) continue
     const key = toDateKey(year, month, day)
-    const status = att.days[key]
+    const status = getDayStatus(att.days, key)
     if (status !== 'office' && status !== 'wfh') return false
   }
   return true
@@ -538,7 +537,8 @@ export function evaluateAchievementBadges(
 
   let office = 0
   let wfh = 0
-  for (const status of Object.values(focusAtt.days)) {
+  for (const key of Object.keys(focusAtt.days)) {
+    const status = getDayStatus(focusAtt.days, key)
     if (status === 'office') office += 1
     if (status === 'wfh') wfh += 1
   }
@@ -645,7 +645,7 @@ export function evaluateAchievementBadges(
       firstWork.getFullYear(),
       firstWork.getMonth(),
     )
-    const status = firstAtt.days[firstKey]
+    const status = getDayStatus(firstAtt.days, firstKey)
     if (status === 'office' || status === 'wfh') {
       rewards = tryAdd(
         rewards,
@@ -695,8 +695,8 @@ export function evaluateAchievementBadges(
     const m = Number(monthKey.slice(5, 7)) - 1
     const att = getMonthAttendance(data.attendance, y, m)
     let monthOffice = 0
-    for (const status of Object.values(att.days)) {
-      if (status === 'office') monthOffice += 1
+    for (const key of Object.keys(att.days)) {
+      if (getDayStatus(att.days, key) === 'office') monthOffice += 1
     }
     const monthGoal = resolveOfficeGoal(y, m, data.settings)
     const goalMet = monthOffice >= monthGoal && monthGoal > 0
@@ -769,7 +769,6 @@ export function evaluateAchievementBadges(
 
   // Also include month goals already present for quarter check after withMonthReward
   void countWorkingDaysInMonth
-  void isInOffice
 
   return {
     rewards: sortRewards(rewards),
@@ -804,14 +803,43 @@ function loadCelebrated(): Set<string> {
   }
 }
 
-export function wasGoalCelebrated(id: string): boolean {
-  return loadCelebrated().has(id)
+const celebratedThisPageLoad = new Set<string>()
+
+function celebrationKeys(badge: Pick<GoalReward, 'id' | 'kind' | 'key'>): string[] {
+  const kindKey = `${badge.kind}:${badge.key}`
+  return badge.id === kindKey ? [kindKey] : [kindKey, badge.id]
 }
 
-export function markGoalCelebrated(id: string): void {
+export function wasGoalCelebrated(idOrBadge: string | Pick<GoalReward, 'id' | 'kind' | 'key'>): boolean {
+  const keys =
+    typeof idOrBadge === 'string' ? [idOrBadge] : celebrationKeys(idOrBadge)
+  if (keys.some((k) => celebratedThisPageLoad.has(k))) return true
+  const stored = loadCelebrated()
+  return keys.some((k) => stored.has(k))
+}
+
+export function markGoalCelebrated(idOrBadge: string | Pick<GoalReward, 'id' | 'kind' | 'key'>): void {
+  const keys =
+    typeof idOrBadge === 'string' ? [idOrBadge] : celebrationKeys(idOrBadge)
   const set = loadCelebrated()
-  set.add(id)
+  for (const k of keys) {
+    celebratedThisPageLoad.add(k)
+    set.add(k)
+  }
   localStorage.setItem(CELEBRATED_KEY, JSON.stringify([...set]))
+}
+
+/** Claim a one-time celebration toast; false if already shown (Strict Mode safe). */
+export function claimGoalCelebration(
+  badge: Pick<GoalReward, 'id' | 'kind' | 'key'>,
+): boolean {
+  if (wasGoalCelebrated(badge)) return false
+  markGoalCelebrated(badge)
+  return true
+}
+
+export function rewardToastId(badge: Pick<GoalReward, 'kind' | 'key'>): string {
+  return `badge-${badge.kind}-${badge.key}`
 }
 
 export function rewardTitle(reward: GoalReward): string {
@@ -902,7 +930,6 @@ export function nextStreakMilestone(streak: number): number | null {
 
 export function celebrateNewBadges(added: GoalReward[]): void {
   for (const badge of added) {
-    if (wasGoalCelebrated(badge.id)) continue
-    markGoalCelebrated(badge.id)
+    claimGoalCelebration(badge)
   }
 }

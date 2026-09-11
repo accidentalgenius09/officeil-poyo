@@ -13,6 +13,11 @@ import { POLICY_PRESETS } from '../lib/presets'
 import { exportMonthCsv, exportYearCsv } from '../lib/exportCsv'
 import type { AppData } from '../types'
 import { trackEvent } from '../lib/analytics'
+import {
+  ensureNotificationPermission,
+  getNotificationPermission,
+  notificationsSupported,
+} from '../lib/reminders'
 import { toast } from 'react-hot-toast'
 
 type SettingsPanelProps = {
@@ -43,6 +48,56 @@ function portionLabel(portion: LeavePortion): string {
   if (portion === 'am') return 'AM'
   if (portion === 'pm') return 'PM'
   return 'Full day'
+}
+
+function RemindersSettingsBlock() {
+  const [permission, setPermission] = useState(() => getNotificationPermission())
+
+  if (!notificationsSupported()) {
+    return (
+      <p className="settings-help">
+        Browser notifications are not supported in this browser. In-app toasts
+        still remind you when today is unmarked or you are on the edge of your
+        goal.
+      </p>
+    )
+  }
+
+  async function enableNotifications() {
+    const next = await ensureNotificationPermission()
+    setPermission(next)
+    trackEvent('enable_notifications', { permission: next })
+    if (next === 'granted') {
+      toast.success('Browser notifications enabled')
+    } else if (next === 'denied') {
+      toast.error('Notifications blocked — allow them in browser settings')
+    }
+  }
+
+  return (
+    <div className="settings-reminders">
+      <p className="settings-help">
+        Once a day: toast if today is unmarked, or if you need office every
+        remaining working day to hit the goal. Enable browser notifications to
+        also get OS alerts when the tab is in the background.
+      </p>
+      {permission === 'granted' ? (
+        <p className="settings-help settings-reminders-status">
+          Browser notifications are on.
+        </p>
+      ) : (
+        <button
+          type="button"
+          className="settings-submit"
+          onClick={() => void enableNotifications()}
+        >
+          {permission === 'denied'
+            ? 'Notifications blocked'
+            : 'Enable browser notifications'}
+        </button>
+      )}
+    </div>
+  )
 }
 
 export function SettingsPanel({
@@ -190,6 +245,7 @@ export function SettingsPanel({
           <p className="settings-help">
             Signed in as {userEmail || profile.email || 'your account'}.
           </p>
+          <RemindersSettingsBlock />
           <button
             type="button"
             className="settings-submit settings-danger"

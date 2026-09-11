@@ -1,6 +1,8 @@
 import type { AppData, DayStatus } from '../types'
 import {
   daysInMonth,
+  getDayRecord,
+  getDayStatus,
   getMonthAttendance,
   holidayNameByDate,
   isInOffice,
@@ -43,14 +45,23 @@ export function exportMonthCsv(
   const total = daysInMonth(year, month)
 
   const rows = [
-    ['Date', 'Weekday', 'Status', 'Office', 'Note'].join(','),
+    [
+      'Date',
+      'Weekday',
+      'Status',
+      'Office',
+      'Note',
+      'Work note',
+      'Work summary',
+    ].join(','),
   ]
 
   for (let day = 1; day <= total; day++) {
     const dateKey = toDateKey(year, month, day)
     const date = new Date(year, month, day)
     const weekday = date.toLocaleDateString(undefined, { weekday: 'short' })
-    const status = attendance.days[dateKey]
+    const status = getDayStatus(attendance.days, dateKey)
+    const record = getDayRecord(attendance.days, dateKey)
     const holiday = holidays.get(dateKey)
     const leave = leaves.get(dateKey)
     const note = holiday
@@ -66,6 +77,8 @@ export function exportMonthCsv(
         escapeCsv(statusLabel(status)),
         isInOffice(status) ? '1' : '0',
         escapeCsv(note),
+        escapeCsv(record.note ?? ''),
+        escapeCsv(record.summary ?? ''),
       ].join(','),
     )
   }
@@ -84,7 +97,7 @@ export function exportYearCsv(data: AppData, year: number): void {
     let office = 0
     for (let day = 1; day <= total; day++) {
       const key = toDateKey(year, month, day)
-      if (isInOffice(attendance.days[key])) office += 1
+      if (isInOffice(getDayStatus(attendance.days, key))) office += 1
     }
     rows.push(
       [escapeCsv(monthLabel(year, month)), String(office)].join(','),

@@ -1,11 +1,21 @@
 export type DayStatus = 'office' | 'wfh' | null
 
+/** Per-day attendance, optionally with a short note and AI summary. */
+export type DayRecord = {
+  status: DayStatus
+  note?: string
+  summary?: string
+}
+
+export type DayValue = DayStatus | DayRecord
+
 export type LeavePortion = 'full' | 'am' | 'pm'
 
 export type MonthAttendance = {
   year: number
   month: number // 0–11
-  days: Record<string, DayStatus>
+  /** Legacy days store plain status strings; notes use DayRecord. */
+  days: Record<string, DayValue>
 }
 
 export type LeaveEntry = {

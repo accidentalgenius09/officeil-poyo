@@ -590,6 +590,26 @@
   box-shadow: 0 0 0 2px var(--surface-solid), 0 0 0 4px var(--today-ring);
 }
 
+.day-cell.selected {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.day-note-dot {
+  position: absolute;
+  bottom: 0.35rem;
+  left: 50%;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: var(--brand-deep);
+  transform: translateX(-50%);
+}
+
+.day-cell.office .day-note-dot {
+  background: var(--on-brand);
+}
+
 .day-cell:not(.empty):hover {
   transform: translateY(-1px) scale(1.03);
 }
@@ -830,6 +850,119 @@
   background: var(--surface-solid);
   box-shadow: var(--shadow);
   animation: settings-rise 0.22s ease-out both;
+}
+
+.day-status-root {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+}
+
+.day-status-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 5.5rem;
+  width: min(420px, calc(100vw - 2rem));
+  max-height: min(78vh, 640px);
+  overflow: auto;
+  padding: 1.15rem 1.15rem 1.35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  transform: translateX(-50%);
+  animation: settings-rise 0.22s ease-out both;
+}
+
+.day-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.85rem 0 1rem;
+}
+
+.day-status-chip {
+  flex: 1 1 auto;
+  min-width: 4.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--input-bg);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.day-status-chip.active.office {
+  background: color-mix(in srgb, var(--brand) 28%, var(--surface-solid));
+  border-color: var(--brand);
+  color: var(--brand-deep);
+}
+
+.day-status-chip.active.wfh {
+  background: color-mix(in srgb, var(--muted-fill) 70%, var(--surface-solid));
+  border-color: var(--wfh-border);
+}
+
+.day-status-chip.active:not(.office):not(.wfh) {
+  background: color-mix(in srgb, var(--ink-soft) 18%, var(--surface-solid));
+}
+
+.day-status-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.day-status-field textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 5rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--input-bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.day-status-summary {
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface-solid));
+}
+
+.day-status-summary-body {
+  margin: 0.35rem 0 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.day-status-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.day-status-secondary {
+  background: transparent !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--border-strong) !important;
 }
 
 .rewards-progress-grid {
@@ -1528,6 +1661,18 @@
   border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent) !important;
 }
 
+.settings-reminders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.settings-reminders-status {
+  margin: 0;
+  color: var(--muted);
+}
+
 .preset-block {
   margin-top: 1.15rem;
 }
@@ -1723,6 +1868,14 @@
     left: 0.75rem;
     width: auto;
     bottom: 12.25rem;
+  }
+
+  .day-status-panel {
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+    bottom: 4.75rem;
+    transform: none;
   }
 
   .settings-form {

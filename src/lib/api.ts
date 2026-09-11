@@ -118,4 +118,25 @@ export async function persistAppData(data: AppData): Promise<void> {
   }
 }
 
+export async function elaborateWorkStatus(input: {
+  note: string
+}): Promise<{ note: string; summary: string }> {
+  const res = await fetch(`${API_BASE}/work-status/elaborate`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      note: input.note,
+    }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) clearSession()
+    throw new Error(await parseError(res))
+  }
+  const data = await res.json()
+  return {
+    note: String(data.note ?? input.note),
+    summary: String(data.summary ?? ''),
+  }
+}
+
 export { emptyAppData }
