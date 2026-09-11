@@ -159,7 +159,6 @@ export function showBrowserNotification(
     const notification = new Notification(title, {
       body,
       tag,
-      renotify: true,
       silent: false,
     })
     notification.onclick = () => {
