@@ -19,6 +19,7 @@ import {
   notificationsSupported,
 } from '../lib/reminders'
 import { toast } from 'react-hot-toast'
+import { ThemedDatePicker } from './ThemedDatePicker'
 
 type SettingsPanelProps = {
   open: boolean
@@ -422,19 +423,19 @@ export function SettingsPanel({
           <form className="settings-form" onSubmit={addLeave}>
             <label>
               From
-              <input
-                type="date"
+              <ThemedDatePicker
+                aria-label="Leave start date"
                 value={leaveStart}
-                onChange={(e) => setLeaveStart(e.target.value)}
+                onChange={setLeaveStart}
                 required
               />
             </label>
             <label>
               To
-              <input
-                type="date"
+              <ThemedDatePicker
+                aria-label="Leave end date"
                 value={leaveEnd}
-                onChange={(e) => setLeaveEnd(e.target.value)}
+                onChange={setLeaveEnd}
                 required
               />
             </label>
@@ -503,10 +504,10 @@ export function SettingsPanel({
           <form className="settings-form" onSubmit={addHoliday}>
             <label>
               Date
-              <input
-                type="date"
+              <ThemedDatePicker
+                aria-label="Holiday date"
                 value={holidayDate}
-                onChange={(e) => setHolidayDate(e.target.value)}
+                onChange={setHolidayDate}
                 required
               />
             </label>

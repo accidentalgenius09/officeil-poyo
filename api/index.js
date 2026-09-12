@@ -47,6 +47,15 @@ const emptyAppData = () => ({
     rewards: [],
     activity: { lastActiveDate: null, streak: 0, behindMonths: [] },
   },
+  finance: {
+    currency: 'INR',
+    transactions: [],
+    salaries: [],
+    emis: [],
+    investments: [],
+    recurringExpenses: [],
+    customCategories: { income: [], expense: [] },
+  },
 })
 
 const app = express()
@@ -209,10 +218,11 @@ function publicUser(user) {
 function normalizePayload(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
 
-  if (!('attendance' in body) && !('settings' in body)) {
+  if (!('attendance' in body) && !('settings' in body) && !('finance' in body)) {
     return {
       attendance: body,
       settings: emptySettings,
+      finance: emptyAppData().finance,
     }
   }
 
@@ -225,6 +235,10 @@ function normalizePayload(body) {
       body.settings && typeof body.settings === 'object'
         ? body.settings
         : emptySettings,
+    finance:
+      body.finance && typeof body.finance === 'object'
+        ? body.finance
+        : emptyAppData().finance,
   }
 }
 
@@ -234,14 +248,20 @@ function unwrapAttendanceDoc(doc) {
     data &&
     typeof data === 'object' &&
     !('attendance' in data) &&
-    !('settings' in data)
+    !('settings' in data) &&
+    !('finance' in data)
   ) {
     return {
       attendance: data,
       settings: doc?.settings ?? emptySettings,
+      finance: emptyAppData().finance,
     }
   }
-  return data ?? emptyAppData()
+  const unwrapped = data ?? emptyAppData()
+  if (!unwrapped.finance || typeof unwrapped.finance !== 'object') {
+    return { ...unwrapped, finance: emptyAppData().finance }
+  }
+  return unwrapped
 }
 
 app.get('/api/health', async (_req, res) => {
@@ -341,6 +361,34 @@ app.get('/api/auth/me', async (req, res) => {
   })
 })
 
+function isFinanceEmpty(finance) {
+  if (!finance || typeof finance !== 'object') return true
+  const tx = Array.isArray(finance.transactions) ? finance.transactions : []
+  const salaries = Array.isArray(finance.salaries) ? finance.salaries : []
+  const emis = Array.isArray(finance.emis) ? finance.emis : []
+  const investments = Array.isArray(finance.investments)
+    ? finance.investments
+    : []
+  const recurring = Array.isArray(finance.recurringExpenses)
+    ? finance.recurringExpenses
+    : []
+  const incomeCats = Array.isArray(finance.customCategories?.income)
+    ? finance.customCategories.income
+    : []
+  const expenseCats = Array.isArray(finance.customCategories?.expense)
+    ? finance.customCategories.expense
+    : []
+  return (
+    tx.length === 0 &&
+    salaries.length === 0 &&
+    emis.length === 0 &&
+    investments.length === 0 &&
+    recurring.length === 0 &&
+    incomeCats.length === 0 &&
+    expenseCats.length === 0
+  )
+}
+
 app.get('/api/attendance', async (req, res) => {
   await withDb(res, async (db) => {
     const user = await requireUser(req, res, db)
@@ -363,7 +411,20 @@ app.put('/api/attendance', async (req, res) => {
     const user = await requireUser(req, res, db)
     if (!user) return
 
-    await db.collection(ATTENDANCE_COLLECTION).updateOne(
+    const collection = db.collection(ATTENDANCE_COLLECTION)
+    const existing = await collection.findOne({ _id: String(user._id) })
+    const existingData = unwrapAttendanceDoc(existing)
+
+    // Never let an empty finance payload wipe a populated MongoDB finance doc
+    // (e.g. calendar tab saving before finance finished syncing).
+    if (
+      isFinanceEmpty(payload.finance) &&
+      !isFinanceEmpty(existingData.finance)
+    ) {
+      payload.finance = existingData.finance
+    }
+
+    await collection.updateOne(
       { _id: String(user._id) },
       {
         $set: { data: payload, updatedAt: new Date() },
@@ -371,7 +432,7 @@ app.put('/api/attendance', async (req, res) => {
       },
       { upsert: true },
     )
-    res.json({ ok: true })
+    res.json({ ok: true, financeSaved: !isFinanceEmpty(payload.finance) })
   })
 })
 

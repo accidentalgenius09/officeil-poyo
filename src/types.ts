@@ -107,9 +107,101 @@ export type CalendarSettings = {
   activity: ActivityStreak
 }
 
+export type FinanceTxnKind = 'income' | 'expense'
+
+export type FinanceTransaction = {
+  id: string
+  kind: FinanceTxnKind
+  amount: number
+  category: string
+  note: string
+  date: string // YYYY-MM-DD
+  createdAt: string // ISO
+  /** Dedupes auto salary / EMI posts, e.g. recurring:salary:2026-09 */
+  sourceKey?: string
+}
+
+export type FinanceAllowance = {
+  id: string
+  label: string
+  amount: number
+}
+
+export type FinanceSalary = {
+  id: string
+  /** Label e.g. Primary job, Freelance retainer */
+  name: string
+  enabled: boolean
+  /** Base / fixed salary amount */
+  fixedAmount: number
+  /** Day of month (1–31); clamped to last day when the month is shorter */
+  payday: number
+  allowances: FinanceAllowance[]
+}
+
+export type FinanceEmi = {
+  id: string
+  name: string
+  amount: number
+  /** Day of month (1–31) when EMI is due */
+  dayOfMonth: number
+  enabled: boolean
+  /** Optional YYYY-MM when EMI starts (inclusive) */
+  startMonth?: string
+  /** Optional YYYY-MM when EMI ends (inclusive) */
+  endMonth?: string
+}
+
+export type FinanceInvestmentFrequency = 'weekly' | 'monthly'
+
+export type FinanceInvestment = {
+  id: string
+  /** e.g. Nippon Index Fund, Gold ETF SIP */
+  name: string
+  amount: number
+  frequency: FinanceInvestmentFrequency
+  /**
+   * Monthly: day of month (1–31).
+   * Weekly: weekday (0=Sun … 6=Sat), matching Date.getDay().
+   */
+  day: number
+  enabled: boolean
+}
+
+/** General recurring expense (rent, subscriptions, etc.) from Overview */
+export type FinanceRecurringExpense = {
+  id: string
+  name: string
+  amount: number
+  category: string
+  frequency: FinanceInvestmentFrequency
+  /** Monthly: day of month 1–31; weekly: weekday 0–6 */
+  day: number
+  enabled: boolean
+}
+
+export type FinanceCustomCategories = {
+  income: string[]
+  expense: string[]
+}
+
+export type FinanceData = {
+  currency: string
+  transactions: FinanceTransaction[]
+  /** One or more salaries, each with its own payday */
+  salaries: FinanceSalary[]
+  emis: FinanceEmi[]
+  /** Recurring SIPs / mutual fund investments */
+  investments: FinanceInvestment[]
+  /** Recurring expenses created from Overview */
+  recurringExpenses: FinanceRecurringExpense[]
+  customCategories: FinanceCustomCategories
+}
+
 export type AppData = {
   attendance: Record<string, MonthAttendance>
   settings: CalendarSettings
+  finance?: FinanceData
 }
 
 export type MonthStats = {
