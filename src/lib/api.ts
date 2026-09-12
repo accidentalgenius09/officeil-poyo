@@ -107,10 +107,15 @@ export async function fetchAppData(): Promise<AppData> {
 }
 
 export async function persistAppData(data: AppData): Promise<void> {
+  const payload = normalizeAppData(data)
   const res = await fetch(`${API_BASE}/attendance`, {
     method: 'PUT',
     headers: authHeaders(),
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      attendance: payload.attendance,
+      settings: payload.settings,
+      finance: payload.finance,
+    }),
   })
   if (!res.ok) {
     if (res.status === 401) clearSession()

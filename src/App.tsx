@@ -52,6 +52,11 @@ import {
   getNotificationPermission,
 } from "./lib/reminders";
 import { RewardsPanel } from "./components/RewardsPanel";
+import { FinanceFab } from "./components/FinanceFab";
+import {
+  preferLocalFinanceIfRemoteEmpty,
+} from "./lib/finance";
+import { createDebouncedAppPersister } from "./lib/persistQueue";
 import "./App.css";
 
 function App() {
@@ -69,8 +74,24 @@ function App() {
     "loading",
   );
   const skipNextSave = useRef(true);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadErrorToasted = useRef(false);
+  const persister = useRef(
+    createDebouncedAppPersister(400, {
+      onError: (err) => {
+        const message =
+          err instanceof Error ? err.message : "Could not save to MongoDB.";
+        if (/sign in|unauthorized|401/i.test(message)) {
+          clearSession();
+          setUser(null);
+          toast.error("Session expired. Please sign in again.");
+          return;
+        }
+        toast.error(
+          "Could not save to MongoDB. Check Atlas Network Access for your current IP.",
+        );
+      },
+    }),
+  );
 
   const attendance = getMonthAttendance(appData.attendance, year, month);
   const stats = computeStats(
@@ -278,8 +299,16 @@ function App() {
           if (cancelled) return;
           setAppData(local);
         } else {
-          setAppData(remote);
-          cacheAppData(remote);
+          const { data: merged, restoredFinance } =
+            preferLocalFinanceIfRemoteEmpty(remote, local);
+          setAppData(merged);
+          cacheAppData(merged);
+          if (restoredFinance) {
+            await persistAppData(merged);
+            if (!cancelled) {
+              toast.success("Restored finance data from this device to MongoDB");
+            }
+          }
         }
         setLoadState("ready");
         loadErrorToasted.current = false;
@@ -310,30 +339,15 @@ function App() {
     }
 
     cacheAppData(appData);
-
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      persistAppData(appData)
-        .then(() => undefined)
-        .catch((err) => {
-          const message =
-            err instanceof Error ? err.message : "Could not save to MongoDB.";
-          if (/sign in|unauthorized|401/i.test(message)) {
-            clearSession();
-            setUser(null);
-            toast.error("Session expired. Please sign in again.");
-            return;
-          }
-          toast.error(
-            "Could not save to MongoDB. Check Atlas Network Access for your current IP.",
-          );
-        });
-    }, 400);
-
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
+    persister.current.schedule(appData);
   }, [appData, user]);
+
+  useEffect(() => {
+    const queue = persister.current;
+    return () => {
+      void queue.flush().catch(() => undefined);
+    };
+  }, []);
 
   function goPrevMonth() {
     trackEvent("change_month", { direction: "prev" });
@@ -666,6 +680,8 @@ function App() {
           . All Rights Reserved.
         </p>
       </main>
+
+      <FinanceFab />
 
       {selectedDay !== null && (
         <DayStatusPanel

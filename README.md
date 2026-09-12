@@ -39,6 +39,7 @@
 | **Pace & streak** | “Can I still hit the goal?”, this week’s office days, consecutive streak |
 | **Presets** | Every working day · 3×/week · 2×/week · classic 12 |
 | **Goal rewards** | Monthly goals, logger & office streaks, hybrid/week badges, early bird, clutch, overachiever, comeback, no-gap, quarter/half-year/perfect year, century club, planner, holiday curator, clean calendar, New Year starter, month of Sundays, night owl, weekend warrior |
+| **Finance** | Money FAB → `/finance`: **Overview** (add txn, optional recurring expense, pie chart), Income/Expenses lists, **Setup** (salaries, EMIs, investments/SIPs, recurring expenses, custom categories); recurring posts sync to Mongo |
 | **Leave** | Full-day or half-day (AM/PM); full leave locks the day |
 | **Holidays** | Named holidays, yearly recurrence, one-click **India** pack |
 | **Export** | CSV for current month (day-by-day) or full year (month + office days) |
@@ -153,13 +154,14 @@ API examples: `/api/attendance`, `/api/auth/login`, `/api/auth/register`.
 5. **Summary cards** — goal progress, pace warnings, week count, and streak  
 6. **Reminders** — after load, if today is an unmarked working day or you are on the edge of your monthly goal, you get a toast once that day; with notifications enabled, the same alert can appear as a browser/OS notification (including when the tab is in the background)  
 7. **Rewards** (trophy icon) — monthly goals, update streaks (7/30/60/100 days), perfect year; history with dates; unlock toasts appear once per badge  
-8. **Games** (controller icon) — Sudoku, Memory Match, or 2048 (Gold/Aurora from this year’s monthly badges)  
+8. **Finance** (money icon, above rewards) — `/finance` with **Overview** (add transactions, optional recurring expense, month-selectable pie chart), **Income** / **Expenses** lists, and **Setup** (salaries, EMIs, investment SIPs, recurring expenses, custom categories).  
+9. **Games** (controller icon) — Sudoku, Memory Match, or 2048 (Gold/Aurora from this year’s monthly badges)  
 
 Hit monthly goals for badges. Log attendance daily for logger streaks (7→100). Build office streaks (5/10/20). Hit **all 12 months** for perfect year — plus hybrid, week, planning, and milestone badges. Console themes use **this year’s monthly goal badges** and reset each year.
 
 Errors, reminders, and badge unlocks show as toasts in the **top-right**.
 
-Data saves to your user document in MongoDB automatically. If the DB is unreachable, changes stay in local cache until sync works again.
+Data saves to your user document in MongoDB automatically (attendance, settings, and finance). Pending saves flush when you leave a page so finance is not stuck only in local cache. The API also refuses to overwrite existing finance with an empty payload. If the DB is unreachable, changes stay in local cache until sync works again. Sync never replaces local finance with an empty remote copy (so older API saves that omitted finance cannot wipe SIPs/salaries still on the device).
 
 Sudoku progress, theme preference, reminder “already shown today” flags, and notification permission prompt state live in the browser (`localStorage`).
 
@@ -186,11 +188,15 @@ src/
     SummaryCards.tsx     # Goal, pace, streak, week insights
     SettingsPanel.tsx    # Profile, presets, leave, holidays, CSV, notifications, sign out
     RewardsPanel.tsx     # Trophy FAB + badge history modal
+    FinanceFab.tsx       # Money FAB → /finance
     ThemeToggle.tsx      # Light / dark celestial switch
+    finance/
+      FinancePage.tsx    # Financial segments (overview / income / expenses)
     games/               # Game console, Sudoku, Memory Match, 2048
   lib/
     api.ts               # Auth session + attendance + work-status API client
     attendance.ts        # Calendar math, stats, DayRecord helpers, normalize/cache
+    finance.ts           # Finance transactions + month summaries
     holidays.ts          # India holiday pack import
     exportCsv.ts         # Month / year CSV download (includes work note/summary)
     presets.ts           # Policy preset definitions
@@ -198,8 +204,8 @@ src/
     reminders.ts         # Daily unmarked / on-edge toasts + browser notifications
     analytics.ts         # GA4 custom events
     sudoku.ts            # Sudoku helpers
-  App.tsx                # Main app (requires sign-in)
-  main.tsx               # React root + react-hot-toast Toaster (top-right)
+  App.tsx                # Calendar app (requires sign-in)
+  main.tsx               # Router + react-hot-toast Toaster (top-right)
 api/
   index.js               # Express + MongoDB + auth + Groq elaborate API
 ```
@@ -238,6 +244,17 @@ Fired via `src/lib/analytics.ts` (`trackEvent`). **Never** sends profile name or
 | `apply_policy_preset` | Policy preset applied |
 | `goal_reward_earned` | Monthly office goal met or achievement badge unlocked |
 | `open_rewards` / `close_rewards` | Rewards panel |
+| `open_finance` / `close_finance` | Navigate to / from finance module |
+| `finance_segment` | Overview / Income / Expenses tab |
+| `finance_add_transaction` | Income or expense added |
+| `finance_add_recurring_expense` | Recurring expense rule created from Overview |
+| `finance_delete_transaction` | Transaction removed |
+| `finance_save_salary` | Salary settings saved |
+| `finance_add_allowance` | Salary allowance added |
+| `finance_add_emi` | Recurring EMI added |
+| `finance_add_investment` | Recurring investment / SIP added |
+| `finance_add_category` / `finance_remove_category` | Custom income/expense category |
+| `finance_recurring_applied` | Auto salary/EMI/investment entries posted on load |
 | `add_leave` / `remove_leave` | Leave entries |
 | `add_holiday` / `remove_holiday` | Holiday entries |
 | `import_holidays` | India holiday pack imported |

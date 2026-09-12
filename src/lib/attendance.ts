@@ -14,6 +14,7 @@ import type {
   RewardKind,
   UserProfile,
 } from '../types'
+import { emptyFinance, normalizeFinance } from './finance'
 
 const STORAGE_KEY = 'office-visit-app-data'
 const LEGACY_STORAGE_KEY = 'office-visit-attendance'
@@ -45,7 +46,7 @@ export function emptySettings(): CalendarSettings {
 }
 
 export function emptyAppData(): AppData {
-  return { attendance: {}, settings: emptySettings() }
+  return { attendance: {}, settings: emptySettings(), finance: emptyFinance() }
 }
 
 export function toDateKey(year: number, month: number, day: number): string {
@@ -423,7 +424,11 @@ export function normalizeAppData(raw: unknown): AppData {
 
   const record = raw as Record<string, unknown>
   if (looksLikeLegacyAttendance(record)) {
-    return { attendance: record, settings: emptySettings() }
+    return {
+      attendance: record,
+      settings: emptySettings(),
+      finance: emptyFinance(),
+    }
   }
 
   const attendance =
@@ -433,6 +438,7 @@ export function normalizeAppData(raw: unknown): AppData {
   return {
     attendance,
     settings: normalizeSettings(record.settings),
+    finance: normalizeFinance(record.finance),
   }
 }
 
