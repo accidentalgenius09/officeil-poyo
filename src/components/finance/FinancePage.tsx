@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash } from '@phosphor-icons/react'
+import { ArrowLeft, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { toast } from 'react-hot-toast'
 import type {
   AppData,
   AuthUser,
   FinanceInvestmentFrequency,
+  FinanceTransaction,
   FinanceTxnKind,
 } from '../../types'
 import {
@@ -23,6 +24,7 @@ import {
 } from '../../lib/api'
 import { trackEvent } from '../../lib/analytics'
 import { createDebouncedAppPersister } from '../../lib/persistQueue'
+import { exportFinanceMonthCsv } from '../../lib/exportCsv'
 import { AuthScreen } from '../AuthScreen'
 import { ThemeToggle } from '../ThemeToggle'
 import { FinancePieChart } from './FinancePieChart'
@@ -72,6 +74,7 @@ export function FinancePage() {
   const [category, setCategory] = useState('EMI')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(todayInputValue)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [recurringExpense, setRecurringExpense] = useState(false)
   const [txnFrequency, setTxnFrequency] =
     useState<FinanceInvestmentFrequency>('monthly')
@@ -81,12 +84,6 @@ export function FinancePage() {
   const [addSalaryWithAllowance, setAddSalaryWithAllowance] = useState(false)
   const [newAllowanceLabel, setNewAllowanceLabel] = useState('')
   const [newAllowanceAmount, setNewAllowanceAmount] = useState('')
-  const [allowanceOpenIds, setAllowanceOpenIds] = useState<
-    Record<string, boolean>
-  >({})
-  const [allowanceDrafts, setAllowanceDrafts] = useState<
-    Record<string, { label: string; amount: string }>
-  >({})
   const [emiName, setEmiName] = useState('')
   const [emiAmount, setEmiAmount] = useState('')
   const [emiDay, setEmiDay] = useState('5')
@@ -96,12 +93,33 @@ export function FinancePage() {
     useState<FinanceInvestmentFrequency>('monthly')
   const [invDay, setInvDay] = useState('1')
   const [invWeekday, setInvWeekday] = useState('1')
+  const [recName, setRecName] = useState('')
+  const [recAmount, setRecAmount] = useState('')
+  const [recFrequency, setRecFrequency] =
+    useState<FinanceInvestmentFrequency>('monthly')
+  const [recDay, setRecDay] = useState('1')
+  const [recWeekday, setRecWeekday] = useState('1')
+  const [recCategory, setRecCategory] = useState('Other expense')
   const [customCategoryName, setCustomCategoryName] = useState('')
   const [customCategoryKind, setCustomCategoryKind] =
     useState<FinanceTxnKind>('expense')
+  const [editingSalaryId, setEditingSalaryId] = useState<string | null>(null)
+  const [editingEmiId, setEditingEmiId] = useState<string | null>(null)
+  const [editingInvId, setEditingInvId] = useState<string | null>(null)
+  const [editingRecurringId, setEditingRecurringId] = useState<string | null>(
+    null,
+  )
+  const [editingAllowance, setEditingAllowance] = useState<{
+    salaryId: string
+    allowanceId: string
+  } | null>(null)
+  const [editingCategoryName, setEditingCategoryName] = useState<string | null>(
+    null,
+  )
   const [chartMonthKey, setChartMonthKey] = useState(() =>
     monthPrefix(new Date().getFullYear(), new Date().getMonth()),
   )
+  const [txnLimit, setTxnLimit] = useState(10)
   const skipNextSave = useRef(true)
   const persister = useRef(
     createDebouncedAppPersister(400, {
@@ -132,7 +150,10 @@ export function FinancePage() {
         const [y, m] = key.split('-').map(Number)
         return {
           value: key,
-          label: monthLabel(y, m - 1),
+          label: new Date(y, m - 1, 1).toLocaleDateString(undefined, {
+            month: 'short',
+            year: 'numeric',
+          }),
         }
       })
   }, [finance.transactions])
@@ -198,6 +219,16 @@ export function FinancePage() {
       segment === 'overview' ? 'overview' : segment,
     )
   }, [finance.transactions, segment])
+
+  useEffect(() => {
+    setTxnLimit(10)
+  }, [segment])
+
+  const shownTxns = useMemo(
+    () => visible.slice(0, txnLimit),
+    [visible, txnLimit],
+  )
+  const hasMoreTxns = visible.length > txnLimit
   useEffect(() => {
     let cancelled = false
     const token = getStoredToken()
@@ -292,30 +323,38 @@ export function FinancePage() {
     setAppData((prev) => withFinance(prev, updater(getFinance(prev))))
   }
 
-  function handleAddCustomCategory(event: FormEvent) {
-    event.preventDefault()
-    let addedName: string | null = null
-    let error: string | undefined
-    updateFinance((current) => {
-      const result = addCustomCategory(
-        current,
-        customCategoryKind,
-        customCategoryName,
-      )
-      addedName = result.added
-      error = result.error
-      return result.finance
-    })
-    if (error) {
-      toast.error(error)
-      return
-    }
-    if (addedName) {
-      trackEvent('finance_add_category', { kind: customCategoryKind })
-      if (kind === customCategoryKind) setCategory(addedName)
-      setCustomCategoryName('')
-      toast.success(`Category “${addedName}” added`)
-    }
+  function clearSetupEdits() {
+    setEditingSalaryId(null)
+    setEditingEmiId(null)
+    setEditingInvId(null)
+    setEditingRecurringId(null)
+    setEditingAllowance(null)
+    setEditingCategoryName(null)
+  }
+
+  function resetTxnForm() {
+    setAmount('')
+    setNote('')
+    setDate(todayInputValue())
+    setRecurringExpense(false)
+    setTxnFrequency('monthly')
+    setEditingId(null)
+  }
+
+  function startEdit(txn: FinanceTransaction) {
+    setEditingId(txn.id)
+    setKind(txn.kind)
+    setAmount(String(txn.amount))
+    setCategory(txn.category)
+    setNote(txn.note)
+    setDate(txn.date)
+    setRecurringExpense(false)
+    setSegment('overview')
+    trackEvent('finance_edit_transaction_start', { kind: txn.kind })
+  }
+
+  function cancelEdit() {
+    resetTxnForm()
   }
 
   function handleAdd(event: FormEvent) {
@@ -327,6 +366,28 @@ export function FinancePage() {
     }
     if (!date) {
       toast.error('Choose a date')
+      return
+    }
+
+    if (editingId) {
+      updateFinance((current) => ({
+        ...current,
+        transactions: current.transactions.map((t) =>
+          t.id === editingId
+            ? {
+                ...t,
+                kind,
+                amount: Math.round(value * 100) / 100,
+                category: category.trim() || t.category,
+                note: note.trim().slice(0, 200),
+                date,
+              }
+            : t,
+        ),
+      }))
+      trackEvent('finance_edit_transaction', { kind })
+      resetTxnForm()
+      toast.success('Transaction updated')
       return
     }
 
@@ -356,10 +417,7 @@ export function FinancePage() {
       })
       trackEvent('finance_add_transaction', { kind, recurring: true })
       trackEvent('finance_add_recurring_expense')
-      setAmount('')
-      setNote('')
-      setRecurringExpense(false)
-      setTxnFrequency('monthly')
+      resetTxnForm()
       toast.success(
         txnFrequency === 'weekly'
           ? 'Recurring weekly expense saved'
@@ -380,8 +438,7 @@ export function FinancePage() {
       transactions: [txn, ...current.transactions],
     }))
     trackEvent('finance_add_transaction', { kind })
-    setAmount('')
-    setNote('')
+    resetTxnForm()
     toast.success(kind === 'income' ? 'Income added' : 'Expense added')
   }
 
@@ -390,8 +447,109 @@ export function FinancePage() {
       ...current,
       transactions: current.transactions.filter((t) => t.id !== id),
     }))
+    if (editingId === id) resetTxnForm()
     trackEvent('finance_delete_transaction')
     toast.success('Removed')
+  }
+
+  function resetSalaryForm() {
+    setSalaryName('')
+    setSalaryAmount('')
+    setSalaryDay('1')
+    setAddSalaryWithAllowance(false)
+    setNewAllowanceLabel('')
+    setNewAllowanceAmount('')
+    setEditingSalaryId(null)
+    setEditingAllowance(null)
+  }
+
+  function resetEmiForm() {
+    setEmiName('')
+    setEmiAmount('')
+    setEmiDay('5')
+    setEditingEmiId(null)
+  }
+
+  function resetInvForm() {
+    setInvName('')
+    setInvAmount('')
+    setInvFrequency('monthly')
+    setInvDay('1')
+    setInvWeekday('1')
+    setEditingInvId(null)
+  }
+
+  function resetRecForm() {
+    setRecName('')
+    setRecAmount('')
+    setRecFrequency('monthly')
+    setRecDay('1')
+    setRecWeekday('1')
+    setRecCategory('Other expense')
+    setEditingRecurringId(null)
+  }
+
+  function handleAddCustomCategory(event: FormEvent) {
+    event.preventDefault()
+    if (editingCategoryName) {
+      const trimmed = customCategoryName.trim().slice(0, 40)
+      if (!trimmed) {
+        toast.error('Enter a category name')
+        return
+      }
+      const existing = categoriesForKind(finance, customCategoryKind)
+      if (
+        trimmed.toLowerCase() !== editingCategoryName.toLowerCase() &&
+        existing.some((c) => c.toLowerCase() === trimmed.toLowerCase())
+      ) {
+        toast.error('Category already exists')
+        return
+      }
+      updateFinance((current) => ({
+        ...current,
+        customCategories: {
+          ...current.customCategories,
+          [customCategoryKind]: current.customCategories[customCategoryKind].map(
+            (c) => (c === editingCategoryName ? trimmed : c),
+          ),
+        },
+        transactions: current.transactions.map((t) =>
+          t.kind === customCategoryKind && t.category === editingCategoryName
+            ? { ...t, category: trimmed }
+            : t,
+        ),
+        recurringExpenses: current.recurringExpenses.map((r) =>
+          r.category === editingCategoryName ? { ...r, category: trimmed } : r,
+        ),
+      }))
+      trackEvent('finance_edit_category', { kind: customCategoryKind })
+      setCustomCategoryName('')
+      setEditingCategoryName(null)
+      toast.success('Category updated')
+      return
+    }
+    let addedName: string | null = null
+    let error: string | undefined
+    updateFinance((current) => {
+      const result = addCustomCategory(
+        current,
+        customCategoryKind,
+        customCategoryName,
+      )
+      addedName = result.added
+      error = result.error
+      return result.finance
+    })
+    if (error) {
+      toast.error(error)
+      return
+    }
+    if (addedName) {
+      trackEvent('finance_add_category', { kind: customCategoryKind })
+      if (kind === customCategoryKind) setCategory(addedName)
+      setCustomCategoryName('')
+      toast.success(`Category “${addedName}” added`)
+    }
   }
 
   function addSalary(event: FormEvent) {
@@ -408,6 +566,73 @@ export function FinancePage() {
     }
     if (!Number.isFinite(day) || day < 1 || day > 31) {
       toast.error('Salary day must be 1–31')
+      return
+    }
+
+    if (editingSalaryId) {
+      let extraAllowance: ReturnType<typeof createAllowance> | null = null
+      if (addSalaryWithAllowance) {
+        const allowanceValue = Number(newAllowanceAmount)
+        if (!newAllowanceLabel.trim()) {
+          toast.error('Allowance needs a name')
+          return
+        }
+        if (!Number.isFinite(allowanceValue) || allowanceValue <= 0) {
+          toast.error('Enter a valid allowance amount')
+          return
+        }
+        if (!editingAllowance) {
+          extraAllowance = createAllowance(newAllowanceLabel, allowanceValue)
+        }
+      }
+
+      updateFinance((current) => {
+        const next = {
+          ...current,
+          salaries: current.salaries.map((s) => {
+            if (s.id !== editingSalaryId) return s
+            let allowances = s.allowances
+            if (
+              editingAllowance &&
+              editingAllowance.salaryId === s.id &&
+              addSalaryWithAllowance
+            ) {
+              const allowanceValue = Number(newAllowanceAmount)
+              allowances = s.allowances.map((a) =>
+                a.id === editingAllowance.allowanceId
+                  ? {
+                      ...a,
+                      label:
+                        newAllowanceLabel.trim().slice(0, 40) || a.label,
+                      amount: Math.round(allowanceValue * 100) / 100,
+                    }
+                  : a,
+              )
+            } else if (extraAllowance) {
+              allowances = [...s.allowances, extraAllowance]
+            }
+            return {
+              ...s,
+              name: salaryName.trim().slice(0, 60) || s.name,
+              fixedAmount: Math.round(value * 100) / 100,
+              payday: day,
+              allowances,
+            }
+          }),
+        }
+        return applyRecurringFinance(next).finance
+      })
+      trackEvent('finance_edit_salary')
+      if (editingAllowance) trackEvent('finance_edit_allowance')
+      else if (extraAllowance) trackEvent('finance_add_allowance')
+      resetSalaryForm()
+      toast.success(
+        editingAllowance
+          ? 'Salary & allowance updated'
+          : extraAllowance
+            ? 'Salary updated with allowance'
+            : 'Salary updated',
+      )
       return
     }
 
@@ -440,52 +665,10 @@ export function FinancePage() {
       }
       return applyRecurringFinance(next).finance
     })
-    setSalaryName('')
-    setSalaryAmount('')
-    setSalaryDay('1')
-    setAddSalaryWithAllowance(false)
-    setNewAllowanceLabel('')
-    setNewAllowanceAmount('')
+    resetSalaryForm()
     trackEvent('finance_save_salary')
     if (allowances.length > 0) trackEvent('finance_add_allowance')
     toast.success('Salary added — paydays post automatically')
-  }
-
-  function addAllowanceToSalary(salaryId: string, event: FormEvent) {
-    event.preventDefault()
-    const draft = allowanceDrafts[salaryId] ?? { label: '', amount: '' }
-    const value = Number(draft.amount)
-    if (!draft.label.trim()) {
-      toast.error('Allowance needs a name')
-      return
-    }
-    if (!Number.isFinite(value) || value <= 0) {
-      toast.error('Enter a valid allowance amount')
-      return
-    }
-    updateFinance((current) => {
-      const next = {
-        ...current,
-        salaries: current.salaries.map((s) =>
-          s.id === salaryId
-            ? {
-                ...s,
-                allowances: [
-                  ...s.allowances,
-                  createAllowance(draft.label, value),
-                ],
-              }
-            : s,
-        ),
-      }
-      return applyRecurringFinance(next).finance
-    })
-    setAllowanceDrafts((prev) => ({
-      ...prev,
-      [salaryId]: { label: '', amount: '' },
-    }))
-    trackEvent('finance_add_allowance')
-    toast.success('Allowance added')
   }
 
   function addEmi(event: FormEvent) {
@@ -504,6 +687,30 @@ export function FinancePage() {
       toast.error('EMI day must be 1–31')
       return
     }
+
+    if (editingEmiId) {
+      updateFinance((current) => {
+        const next = {
+          ...current,
+          emis: current.emis.map((e) =>
+            e.id === editingEmiId
+              ? {
+                  ...e,
+                  name: emiName.trim().slice(0, 60) || e.name,
+                  amount: Math.round(value * 100) / 100,
+                  dayOfMonth: day,
+                }
+              : e,
+          ),
+        }
+        return applyRecurringFinance(next).finance
+      })
+      trackEvent('finance_edit_emi')
+      resetEmiForm()
+      toast.success('EMI updated')
+      return
+    }
+
     const startMonth = monthPrefix(viewYear, viewMonth)
     updateFinance((current) => {
       const next = {
@@ -520,9 +727,7 @@ export function FinancePage() {
       }
       return applyRecurringFinance(next).finance
     })
-    setEmiName('')
-    setEmiAmount('')
-    setEmiDay('5')
+    resetEmiForm()
     trackEvent('finance_add_emi')
     toast.success('EMI added — due dates post automatically')
   }
@@ -549,6 +754,31 @@ export function FinancePage() {
       toast.error('Choose a weekday')
       return
     }
+
+    if (editingInvId) {
+      updateFinance((current) => {
+        const next = {
+          ...current,
+          investments: current.investments.map((inv) =>
+            inv.id === editingInvId
+              ? {
+                  ...inv,
+                  name: invName.trim().slice(0, 60) || inv.name,
+                  amount: Math.round(value * 100) / 100,
+                  frequency: invFrequency,
+                  day,
+                }
+              : inv,
+          ),
+        }
+        return applyRecurringFinance(next).finance
+      })
+      trackEvent('finance_edit_investment')
+      resetInvForm()
+      toast.success('Investment updated')
+      return
+    }
+
     updateFinance((current) => {
       const next = {
         ...current,
@@ -564,13 +794,55 @@ export function FinancePage() {
       }
       return applyRecurringFinance(next).finance
     })
-    setInvName('')
-    setInvAmount('')
-    setInvFrequency('monthly')
-    setInvDay('1')
-    setInvWeekday('1')
+    resetInvForm()
     trackEvent('finance_add_investment')
     toast.success('Investment SIP added — posts automatically')
+  }
+
+  function saveRecurringExpense(event: FormEvent) {
+    event.preventDefault()
+    if (!editingRecurringId) return
+    const value = Number(recAmount)
+    const day =
+      recFrequency === 'weekly' ? Number(recWeekday) : Number(recDay)
+    if (!recName.trim()) {
+      toast.error('Expense needs a name')
+      return
+    }
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+    if (recFrequency === 'monthly') {
+      if (!Number.isFinite(day) || day < 1 || day > 31) {
+        toast.error('Day must be 1–31')
+        return
+      }
+    } else if (!Number.isFinite(day) || day < 0 || day > 6) {
+      toast.error('Choose a weekday')
+      return
+    }
+    updateFinance((current) => {
+      const next = {
+        ...current,
+        recurringExpenses: current.recurringExpenses.map((item) =>
+          item.id === editingRecurringId
+            ? {
+                ...item,
+                name: recName.trim().slice(0, 60) || item.name,
+                amount: Math.round(value * 100) / 100,
+                category: recCategory.trim().slice(0, 40) || item.category,
+                frequency: recFrequency,
+                day,
+              }
+            : item,
+        ),
+      }
+      return applyRecurringFinance(next).finance
+    })
+    trackEvent('finance_edit_recurring_expense')
+    resetRecForm()
+    toast.success('Recurring expense updated')
   }
 
   if (authChecking) {
@@ -686,6 +958,18 @@ export function FinancePage() {
             monthValue={chartMonthKey}
             monthOptions={chartMonthOptions}
             onMonthChange={setChartMonthKey}
+            onExportMonth={() => {
+              if (
+                !Number.isFinite(chartYear) ||
+                !Number.isFinite(chartMonth)
+              ) {
+                toast.error('Choose a valid month')
+                return
+              }
+              exportFinanceMonthCsv(finance, chartYear, chartMonth)
+              trackEvent('finance_export_month', { month: chartMonthKey })
+              toast.success(`Exported ${chartMonthName}`)
+            }}
           />
         )}
 
@@ -736,11 +1020,16 @@ export function FinancePage() {
                   <input
                     type="checkbox"
                     checked={addSalaryWithAllowance}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setAddSalaryWithAllowance(e.target.checked)
-                    }
+                      if (!e.target.checked) {
+                        setNewAllowanceLabel('')
+                        setNewAllowanceAmount('')
+                        setEditingAllowance(null)
+                      }
+                    }}
                   />
-                  Add allowance
+                  {editingAllowance ? 'Edit allowance' : 'Add allowance'}
                 </label>
                 {addSalaryWithAllowance && (
                   <div className="finance-allowance-form finance-allowance-form--inline">
@@ -763,21 +1052,26 @@ export function FinancePage() {
                     />
                   </div>
                 )}
-                <button type="submit" className="settings-submit">
-                  Add salary
-                </button>
+                <div className="finance-form-actions">
+                  {editingSalaryId && (
+                    <button
+                      type="button"
+                      className="settings-submit day-status-secondary"
+                      onClick={resetSalaryForm}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button type="submit" className="settings-submit">
+                    {editingSalaryId ? 'Save salary' : 'Add salary'}
+                  </button>
+                </div>
               </form>
               {finance.salaries.length === 0 ? (
                 <p className="settings-help">No salaries yet.</p>
               ) : (
                 <ul className="finance-mini-list">
-                  {finance.salaries.map((salary) => {
-                    const draft = allowanceDrafts[salary.id] ?? {
-                      label: '',
-                      amount: '',
-                    }
-                    const allowanceOpen = Boolean(allowanceOpenIds[salary.id])
-                    return (
+                  {finance.salaries.map((salary) => (
                       <li key={salary.id} className="finance-salary-item">
                         <div className="finance-salary-head">
                           <label className="finance-check finance-emi-row">
@@ -809,21 +1103,43 @@ export function FinancePage() {
                               )}
                             </span>
                           </label>
-                          <button
-                            type="button"
-                            className="finance-delete"
-                            aria-label={`Remove ${salary.name}`}
-                            onClick={() =>
-                              updateFinance((current) => ({
-                                ...current,
-                                salaries: current.salaries.filter(
-                                  (x) => x.id !== salary.id,
-                                ),
-                              }))
-                            }
-                          >
-                            <Trash size={16} weight="bold" aria-hidden />
-                          </button>
+                          <div className="finance-item-actions">
+                            <button
+                              type="button"
+                              className="finance-edit"
+                              aria-label={`Edit ${salary.name}`}
+                              onClick={() => {
+                                clearSetupEdits()
+                                setEditingSalaryId(salary.id)
+                                setSalaryName(salary.name)
+                                setSalaryAmount(String(salary.fixedAmount))
+                                setSalaryDay(String(salary.payday))
+                                setAddSalaryWithAllowance(false)
+                                setNewAllowanceLabel('')
+                                setNewAllowanceAmount('')
+                              }}
+                            >
+                              <PencilSimple size={16} weight="bold" aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              className="finance-delete"
+                              aria-label={`Remove ${salary.name}`}
+                              onClick={() => {
+                                if (editingSalaryId === salary.id) {
+                                  resetSalaryForm()
+                                }
+                                updateFinance((current) => ({
+                                  ...current,
+                                  salaries: current.salaries.filter(
+                                    (x) => x.id !== salary.id,
+                                  ),
+                                }))
+                              }}
+                            >
+                              <Trash size={16} weight="bold" aria-hidden />
+                            </button>
+                          </div>
                         </div>
 
                         {salary.allowances.length > 0 && (
@@ -834,103 +1150,67 @@ export function FinancePage() {
                                   {a.label} ·{' '}
                                   {formatMoney(a.amount, finance.currency)}
                                 </span>
-                                <button
-                                  type="button"
-                                  className="finance-delete"
-                                  aria-label={`Remove ${a.label}`}
-                                  onClick={() =>
-                                    updateFinance((current) => {
-                                      const next = {
-                                        ...current,
-                                        salaries: current.salaries.map(
-                                          (sal) =>
-                                            sal.id === salary.id
-                                              ? {
-                                                  ...sal,
-                                                  allowances:
-                                                    sal.allowances.filter(
-                                                      (x) => x.id !== a.id,
-                                                    ),
-                                                }
-                                              : sal,
-                                        ),
-                                      }
-                                      return applyRecurringFinance(next)
-                                        .finance
-                                    })
-                                  }
-                                >
-                                  <Trash size={16} weight="bold" aria-hidden />
-                                </button>
+                                <div className="finance-item-actions">
+                                  <button
+                                    type="button"
+                                    className="finance-edit"
+                                    aria-label={`Edit ${a.label}`}
+                                    onClick={() => {
+                                      clearSetupEdits()
+                                      setEditingSalaryId(salary.id)
+                                      setSalaryName(salary.name)
+                                      setSalaryAmount(String(salary.fixedAmount))
+                                      setSalaryDay(String(salary.payday))
+                                      setEditingAllowance({
+                                        salaryId: salary.id,
+                                        allowanceId: a.id,
+                                      })
+                                      setAddSalaryWithAllowance(true)
+                                      setNewAllowanceLabel(a.label)
+                                      setNewAllowanceAmount(String(a.amount))
+                                    }}
+                                  >
+                                    <PencilSimple
+                                      size={16}
+                                      weight="bold"
+                                      aria-hidden
+                                    />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="finance-delete"
+                                    aria-label={`Remove ${a.label}`}
+                                    onClick={() =>
+                                      updateFinance((current) => {
+                                        const next = {
+                                          ...current,
+                                          salaries: current.salaries.map(
+                                            (sal) =>
+                                              sal.id === salary.id
+                                                ? {
+                                                    ...sal,
+                                                    allowances:
+                                                      sal.allowances.filter(
+                                                        (x) => x.id !== a.id,
+                                                      ),
+                                                  }
+                                                : sal,
+                                          ),
+                                        }
+                                        return applyRecurringFinance(next)
+                                          .finance
+                                      })
+                                    }
+                                  >
+                                    <Trash size={16} weight="bold" aria-hidden />
+                                  </button>
+                                </div>
                               </li>
                             ))}
                           </ul>
                         )}
-
-                        <label className="finance-check">
-                          <input
-                            type="checkbox"
-                            checked={allowanceOpen}
-                            onChange={(e) =>
-                              setAllowanceOpenIds((prev) => ({
-                                ...prev,
-                                [salary.id]: e.target.checked,
-                              }))
-                            }
-                          />
-                          Add allowance
-                        </label>
-                        {allowanceOpen && (
-                          <form
-                            className="finance-allowance-form"
-                            onSubmit={(e) =>
-                              addAllowanceToSalary(salary.id, e)
-                            }
-                          >
-                            <input
-                              type="text"
-                              value={draft.label}
-                              onChange={(e) =>
-                                setAllowanceDrafts((prev) => ({
-                                  ...prev,
-                                  [salary.id]: {
-                                    ...draft,
-                                    label: e.target.value,
-                                  },
-                                }))
-                              }
-                              placeholder="Allowance name"
-                              maxLength={40}
-                              aria-label={`Allowance name for ${salary.name}`}
-                            />
-                            <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
-                              value={draft.amount}
-                              onChange={(e) =>
-                                setAllowanceDrafts((prev) => ({
-                                  ...prev,
-                                  [salary.id]: {
-                                    ...draft,
-                                    amount: e.target.value,
-                                  },
-                                }))
-                              }
-                              placeholder="Amount"
-                              aria-label={`Allowance amount for ${salary.name}`}
-                            />
-                            <button
-                              type="submit"
-                              className="settings-submit day-status-secondary"
-                            >
-                              <Plus size={16} weight="bold" aria-hidden /> Add
-                            </button>
-                          </form>
-                        )}
                       </li>
-                    )
-                  })}
+                    ))}
                 </ul>
               )}
             </section>
@@ -975,9 +1255,20 @@ export function FinancePage() {
                     onChange={(e) => setEmiDay(e.target.value)}
                   />
                 </label>
-                <button type="submit" className="settings-submit">
-                  Add EMI
-                </button>
+                <div className="finance-form-actions">
+                  {editingEmiId && (
+                    <button
+                      type="button"
+                      className="settings-submit day-status-secondary"
+                      onClick={resetEmiForm}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button type="submit" className="settings-submit">
+                    {editingEmiId ? 'Save EMI' : 'Add EMI'}
+                  </button>
+                </div>
               </form>
               {finance.emis.length === 0 ? (
                 <p className="settings-help">No EMIs yet.</p>
@@ -1005,19 +1296,36 @@ export function FinancePage() {
                           {formatMoney(emi.amount, finance.currency)}
                         </span>
                       </label>
-                      <button
-                        type="button"
-                        className="finance-delete"
-                        aria-label={`Remove ${emi.name}`}
-                        onClick={() =>
-                          updateFinance((current) => ({
-                            ...current,
-                            emis: current.emis.filter((x) => x.id !== emi.id),
-                          }))
-                        }
-                      >
-                        <Trash size={16} weight="bold" aria-hidden />
-                      </button>
+                      <div className="finance-item-actions">
+                        <button
+                          type="button"
+                          className="finance-edit"
+                          aria-label={`Edit ${emi.name}`}
+                          onClick={() => {
+                            clearSetupEdits()
+                            setEditingEmiId(emi.id)
+                            setEmiName(emi.name)
+                            setEmiAmount(String(emi.amount))
+                            setEmiDay(String(emi.dayOfMonth))
+                          }}
+                        >
+                          <PencilSimple size={16} weight="bold" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className="finance-delete"
+                          aria-label={`Remove ${emi.name}`}
+                          onClick={() => {
+                            if (editingEmiId === emi.id) resetEmiForm()
+                            updateFinance((current) => ({
+                              ...current,
+                              emis: current.emis.filter((x) => x.id !== emi.id),
+                            }))
+                          }}
+                        >
+                          <Trash size={16} weight="bold" aria-hidden />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1097,9 +1405,20 @@ export function FinancePage() {
                     </label>
                   )}
                 </div>
-                <button type="submit" className="settings-submit">
-                  Add investment
-                </button>
+                <div className="finance-form-actions">
+                  {editingInvId && (
+                    <button
+                      type="button"
+                      className="settings-submit day-status-secondary"
+                      onClick={resetInvForm}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button type="submit" className="settings-submit">
+                    {editingInvId ? 'Save investment' : 'Add investment'}
+                  </button>
+                </div>
               </form>
               {finance.investments.length === 0 ? (
                 <p className="settings-help">No recurring investments yet.</p>
@@ -1130,21 +1449,43 @@ export function FinancePage() {
                           {formatMoney(inv.amount, finance.currency)}
                         </span>
                       </label>
-                      <button
-                        type="button"
-                        className="finance-delete"
-                        aria-label={`Remove ${inv.name}`}
-                        onClick={() =>
-                          updateFinance((current) => ({
-                            ...current,
-                            investments: current.investments.filter(
-                              (x) => x.id !== inv.id,
-                            ),
-                          }))
-                        }
-                      >
-                        <Trash size={16} weight="bold" aria-hidden />
-                      </button>
+                      <div className="finance-item-actions">
+                        <button
+                          type="button"
+                          className="finance-edit"
+                          aria-label={`Edit ${inv.name}`}
+                          onClick={() => {
+                            clearSetupEdits()
+                            setEditingInvId(inv.id)
+                            setInvName(inv.name)
+                            setInvAmount(String(inv.amount))
+                            setInvFrequency(inv.frequency)
+                            if (inv.frequency === 'weekly') {
+                              setInvWeekday(String(inv.day))
+                            } else {
+                              setInvDay(String(inv.day))
+                            }
+                          }}
+                        >
+                          <PencilSimple size={16} weight="bold" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className="finance-delete"
+                          aria-label={`Remove ${inv.name}`}
+                          onClick={() => {
+                            if (editingInvId === inv.id) resetInvForm()
+                            updateFinance((current) => ({
+                              ...current,
+                              investments: current.investments.filter(
+                                (x) => x.id !== inv.id,
+                              ),
+                            }))
+                          }}
+                        >
+                          <Trash size={16} weight="bold" aria-hidden />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1155,8 +1496,100 @@ export function FinancePage() {
               <h2 className="finance-section-title">Recurring expenses</h2>
               <p className="settings-help">
                 Created from Overview when “Recurring expense” is checked.
-                Toggle or remove them here.
+                Edit, toggle, or remove them here.
               </p>
+              {editingRecurringId && (
+                <form
+                  className="finance-inline-form"
+                  onSubmit={saveRecurringExpense}
+                >
+                  <div className="finance-form-row">
+                    <label>
+                      Name
+                      <input
+                        type="text"
+                        value={recName}
+                        onChange={(e) => setRecName(e.target.value)}
+                        maxLength={60}
+                      />
+                    </label>
+                    <label>
+                      Amount
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={recAmount}
+                        onChange={(e) => setRecAmount(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className="finance-form-row">
+                    <label>
+                      Category
+                      <ThemedSelect
+                        aria-label="Recurring expense category"
+                        value={recCategory}
+                        onChange={setRecCategory}
+                        options={categoriesForKind(finance, 'expense').map(
+                          (c) => ({ value: c, label: c }),
+                        )}
+                      />
+                    </label>
+                    <label>
+                      Frequency
+                      <ThemedSelect
+                        aria-label="Recurring frequency"
+                        value={recFrequency}
+                        onChange={(next) =>
+                          setRecFrequency(next as FinanceInvestmentFrequency)
+                        }
+                        options={[
+                          { value: 'monthly', label: 'Monthly' },
+                          { value: 'weekly', label: 'Weekly' },
+                        ]}
+                      />
+                    </label>
+                  </div>
+                  {recFrequency === 'monthly' ? (
+                    <label>
+                      Day of month (1–31)
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={recDay}
+                        onChange={(e) => setRecDay(e.target.value)}
+                      />
+                    </label>
+                  ) : (
+                    <label>
+                      Weekday
+                      <ThemedSelect
+                        aria-label="Recurring weekday"
+                        value={recWeekday}
+                        onChange={setRecWeekday}
+                        options={WEEKDAY_LABELS.map((label, index) => ({
+                          value: String(index),
+                          label,
+                        }))}
+                      />
+                    </label>
+                  )}
+                  <div className="finance-form-actions">
+                    <button
+                      type="button"
+                      className="settings-submit day-status-secondary"
+                      onClick={resetRecForm}
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" className="settings-submit">
+                      Save recurring expense
+                    </button>
+                  </div>
+                </form>
+              )}
               {finance.recurringExpenses.length === 0 ? (
                 <p className="settings-help">No recurring expenses yet.</p>
               ) : (
@@ -1188,22 +1621,45 @@ export function FinancePage() {
                           {formatMoney(item.amount, finance.currency)}
                         </span>
                       </label>
-                      <button
-                        type="button"
-                        className="finance-delete"
-                        aria-label={`Remove ${item.name}`}
-                        onClick={() =>
-                          updateFinance((current) => ({
-                            ...current,
-                            recurringExpenses:
-                              current.recurringExpenses.filter(
-                                (x) => x.id !== item.id,
-                              ),
-                          }))
-                        }
-                      >
-                        <Trash size={16} weight="bold" aria-hidden />
-                      </button>
+                      <div className="finance-item-actions">
+                        <button
+                          type="button"
+                          className="finance-edit"
+                          aria-label={`Edit ${item.name}`}
+                          onClick={() => {
+                            clearSetupEdits()
+                            setEditingRecurringId(item.id)
+                            setRecName(item.name)
+                            setRecAmount(String(item.amount))
+                            setRecCategory(item.category)
+                            setRecFrequency(item.frequency)
+                            if (item.frequency === 'weekly') {
+                              setRecWeekday(String(item.day))
+                            } else {
+                              setRecDay(String(item.day))
+                            }
+                          }}
+                        >
+                          <PencilSimple size={16} weight="bold" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className="finance-delete"
+                          aria-label={`Remove ${item.name}`}
+                          onClick={() => {
+                            if (editingRecurringId === item.id) resetRecForm()
+                            updateFinance((current) => ({
+                              ...current,
+                              recurringExpenses:
+                                current.recurringExpenses.filter(
+                                  (x) => x.id !== item.id,
+                                ),
+                            }))
+                          }}
+                        >
+                          <Trash size={16} weight="bold" aria-hidden />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1226,9 +1682,11 @@ export function FinancePage() {
                     <ThemedSelect
                       aria-label="Category kind"
                       value={customCategoryKind}
-                      onChange={(next) =>
+                      onChange={(next) => {
                         setCustomCategoryKind(next as FinanceTxnKind)
-                      }
+                        setEditingCategoryName(null)
+                        setCustomCategoryName('')
+                      }}
                       options={[
                         { value: 'expense', label: 'Expenses' },
                         { value: 'income', label: 'Income' },
@@ -1236,7 +1694,7 @@ export function FinancePage() {
                     />
                   </label>
                   <label>
-                    New category
+                    {editingCategoryName ? 'Rename category' : 'New category'}
                     <input
                       type="text"
                       value={customCategoryName}
@@ -1246,9 +1704,30 @@ export function FinancePage() {
                     />
                   </label>
                 </div>
-                <button type="submit" className="settings-submit">
-                  <Plus size={16} weight="bold" aria-hidden /> Add category
-                </button>
+                <div className="finance-form-actions">
+                  {editingCategoryName && (
+                    <button
+                      type="button"
+                      className="settings-submit day-status-secondary"
+                      onClick={() => {
+                        setEditingCategoryName(null)
+                        setCustomCategoryName('')
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button type="submit" className="settings-submit">
+                    {editingCategoryName ? (
+                      'Save category'
+                    ) : (
+                      <>
+                        <Plus size={16} weight="bold" aria-hidden /> Add
+                        category
+                      </>
+                    )}
+                  </button>
+                </div>
               </form>
               {customForKind.length === 0 ? (
                 <p className="settings-help">
@@ -1259,26 +1738,44 @@ export function FinancePage() {
                   {customForKind.map((name) => (
                     <li key={name}>
                       <span>{name}</span>
-                      <button
-                        type="button"
-                        className="finance-delete"
-                        aria-label={`Remove category ${name}`}
-                        onClick={() => {
-                          updateFinance((current) =>
-                            removeCustomCategory(
-                              current,
-                              customCategoryKind,
-                              name,
-                            ),
-                          )
-                          trackEvent('finance_remove_category', {
-                            kind: customCategoryKind,
-                          })
-                          toast.success('Category removed')
-                        }}
-                      >
-                        <Trash size={16} weight="bold" aria-hidden />
-                      </button>
+                      <div className="finance-item-actions">
+                        <button
+                          type="button"
+                          className="finance-edit"
+                          aria-label={`Edit category ${name}`}
+                          onClick={() => {
+                            clearSetupEdits()
+                            setEditingCategoryName(name)
+                            setCustomCategoryName(name)
+                          }}
+                        >
+                          <PencilSimple size={16} weight="bold" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className="finance-delete"
+                          aria-label={`Remove category ${name}`}
+                          onClick={() => {
+                            if (editingCategoryName === name) {
+                              setEditingCategoryName(null)
+                              setCustomCategoryName('')
+                            }
+                            updateFinance((current) =>
+                              removeCustomCategory(
+                                current,
+                                customCategoryKind,
+                                name,
+                              ),
+                            )
+                            trackEvent('finance_remove_category', {
+                              kind: customCategoryKind,
+                            })
+                            toast.success('Category removed')
+                          }}
+                        >
+                          <Trash size={16} weight="bold" aria-hidden />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1287,9 +1784,11 @@ export function FinancePage() {
           </>
         )}
 
-        {segment === 'overview' && (
+        {(segment === 'overview' || editingId) && (
           <form className="finance-form" onSubmit={handleAdd}>
-            <h2 className="finance-section-title">Add transaction</h2>
+            <h2 className="finance-section-title">
+              {editingId ? 'Edit transaction' : 'Add transaction'}
+            </h2>
             <div className="finance-form-row">
               <label>
                 Type
@@ -1350,7 +1849,7 @@ export function FinancePage() {
                 maxLength={200}
               />
             </label>
-            {kind === 'expense' && (
+            {!editingId && kind === 'expense' && (
               <>
                 <label className="finance-check">
                   <input
@@ -1387,14 +1886,26 @@ export function FinancePage() {
                 )}
               </>
             )}
-            <button type="submit" className="settings-submit">
-              Add{' '}
-              {kind === 'income'
-                ? 'income'
-                : recurringExpense
-                  ? 'recurring expense'
-                  : 'expense'}
-            </button>
+            <div className="finance-form-actions">
+              {editingId && (
+                <button
+                  type="button"
+                  className="settings-submit day-status-secondary"
+                  onClick={cancelEdit}
+                >
+                  Cancel
+                </button>
+              )}
+              <button type="submit" className="settings-submit">
+                {editingId
+                  ? 'Save changes'
+                  : kind === 'income'
+                    ? 'Add income'
+                    : recurringExpense
+                      ? 'Add recurring expense'
+                      : 'Add expense'}
+              </button>
+            </div>
           </form>
         )}
 
@@ -1412,34 +1923,56 @@ export function FinancePage() {
                 No transactions in this segment yet.
               </p>
             ) : (
-              <ul>
-                {visible.map((txn) => (
-                  <li key={txn.id} className={`finance-item ${txn.kind}`}>
-                    <div>
-                      <strong>{txn.category}</strong>
-                      <span>
-                        {txn.date}
-                        {txn.note ? ` · ${txn.note}` : ''}
-                        {txn.sourceKey ? ' · auto' : ''}
-                      </span>
-                    </div>
-                    <div className="finance-item-actions">
-                      <span className="finance-amount">
-                        {txn.kind === 'income' ? '+' : '−'}
-                        {formatMoney(txn.amount, finance.currency)}
-                      </span>
-                      <button
-                        type="button"
-                        className="finance-delete"
-                        aria-label="Delete transaction"
-                        onClick={() => handleDelete(txn.id)}
-                      >
-                        <Trash size={16} weight="bold" aria-hidden />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul>
+                  {shownTxns.map((txn) => (
+                    <li
+                      key={txn.id}
+                      className={`finance-item ${txn.kind}${editingId === txn.id ? ' is-editing' : ''}`}
+                    >
+                      <div>
+                        <strong>{txn.category}</strong>
+                        <span>
+                          {txn.date}
+                          {txn.note ? ` · ${txn.note}` : ''}
+                          {txn.sourceKey ? ' · auto' : ''}
+                        </span>
+                      </div>
+                      <div className="finance-item-actions">
+                        <span className="finance-amount">
+                          {txn.kind === 'income' ? '+' : '−'}
+                          {formatMoney(txn.amount, finance.currency)}
+                        </span>
+                        <button
+                          type="button"
+                          className="finance-edit"
+                          aria-label="Edit transaction"
+                          onClick={() => startEdit(txn)}
+                        >
+                          <PencilSimple size={16} weight="bold" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          className="finance-delete"
+                          aria-label="Delete transaction"
+                          onClick={() => handleDelete(txn.id)}
+                        >
+                          <Trash size={16} weight="bold" aria-hidden />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {hasMoreTxns && (
+                  <button
+                    type="button"
+                    className="finance-see-more"
+                    onClick={() => setTxnLimit((n) => n + 10)}
+                  >
+                    See more
+                  </button>
+                )}
+              </>
             )}
           </section>
         )}
