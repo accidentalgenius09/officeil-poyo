@@ -39,7 +39,7 @@
 | **Pace & streak** | “Can I still hit the goal?”, this week’s office days, consecutive streak |
 | **Presets** | Every working day · 3×/week · 2×/week · classic 12 |
 | **Goal rewards** | Monthly goals, logger & office streaks, hybrid/week badges, early bird, clutch, overachiever, comeback, no-gap, quarter/half-year/perfect year, century club, planner, holiday curator, clean calendar, New Year starter, month of Sundays, night owl, weekend warrior |
-| **Finance** | Money FAB → `/finance`: **Overview** (add txn, optional recurring expense, pie chart), Income/Expenses lists, **Setup** (salaries, EMIs, investments/SIPs, recurring expenses, custom categories); recurring posts sync to Mongo |
+| **Finance** | Money FAB → `/finance`: **Overview** (add/edit txn, optional recurring expense, month pie chart + CSV export), Income/Expenses lists, **Setup** (add/edit salaries, EMIs, investments/SIPs, recurring expenses, custom categories); recurring posts sync to Mongo |
 | **Leave** | Full-day or half-day (AM/PM); full leave locks the day |
 | **Holidays** | Named holidays, yearly recurrence, one-click **India** pack |
 | **Export** | CSV for current month (day-by-day) or full year (month + office days) |
@@ -154,7 +154,7 @@ API examples: `/api/attendance`, `/api/auth/login`, `/api/auth/register`.
 5. **Summary cards** — goal progress, pace warnings, week count, and streak  
 6. **Reminders** — after load, if today is an unmarked working day or you are on the edge of your monthly goal, you get a toast once that day; with notifications enabled, the same alert can appear as a browser/OS notification (including when the tab is in the background)  
 7. **Rewards** (trophy icon) — monthly goals, update streaks (7/30/60/100 days), perfect year; history with dates; unlock toasts appear once per badge  
-8. **Finance** (money icon, above rewards) — `/finance` with **Overview** (add transactions, optional recurring expense, month-selectable pie chart), **Income** / **Expenses** lists, and **Setup** (salaries, EMIs, investment SIPs, recurring expenses, custom categories).  
+8. **Finance** (money icon, above rewards) — `/finance` with **Overview** (add/edit transactions, optional recurring expense, month-selectable pie chart + **Export CSV** for that month; transaction lists show 10 at a time with **See more**), **Income** / **Expenses** lists, and **Setup** (add/edit salaries with allowances, EMIs, investment SIPs, recurring expenses, custom categories).  
 9. **Games** (controller icon) — Sudoku, Memory Match, or 2048 (Gold/Aurora from this year’s monthly badges)  
 
 Hit monthly goals for badges. Log attendance daily for logger streaks (7→100). Build office streaks (5/10/20). Hit **all 12 months** for perfect year — plus hybrid, week, planning, and milestone badges. Console themes use **this year’s monthly goal badges** and reset each year.
@@ -247,6 +247,8 @@ Fired via `src/lib/analytics.ts` (`trackEvent`). **Never** sends profile name or
 | `open_finance` / `close_finance` | Navigate to / from finance module |
 | `finance_segment` | Overview / Income / Expenses tab |
 | `finance_add_transaction` | Income or expense added |
+| `finance_edit_transaction` | Existing transaction updated |
+| `finance_export_month` | Finance month CSV downloaded |
 | `finance_add_recurring_expense` | Recurring expense rule created from Overview |
 | `finance_delete_transaction` | Transaction removed |
 | `finance_save_salary` | Salary settings saved |

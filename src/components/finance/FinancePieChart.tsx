@@ -1,4 +1,5 @@
 import { useId, useMemo } from 'react'
+import { DownloadSimple } from '@phosphor-icons/react'
 import type { FinancePieSlice } from '../../lib/finance'
 import { formatMoney } from '../../lib/finance'
 import { ThemedSelect, type ThemedSelectOption } from './ThemedSelect'
@@ -22,6 +23,7 @@ type FinancePieChartProps = {
   monthValue: string
   monthOptions: ThemedSelectOption[]
   onMonthChange: (value: string) => void
+  onExportMonth?: () => void
 }
 
 function polar(cx: number, cy: number, r: number, angleDeg: number) {
@@ -72,6 +74,7 @@ export function FinancePieChart({
   monthValue,
   monthOptions,
   onMonthChange,
+  onExportMonth,
 }: FinancePieChartProps) {
   const titleId = useId()
   const paths = useMemo(() => {
@@ -95,15 +98,27 @@ export function FinancePieChart({
         <h2 id={titleId} className="finance-section-title">
           {title}
         </h2>
-        <label className="finance-pie-month">
-          <span className="finance-pie-month-label">Month</span>
-          <ThemedSelect
-            aria-label="Chart month"
-            value={monthValue}
-            onChange={onMonthChange}
-            options={monthOptions}
-          />
-        </label>
+        <div className="finance-pie-controls">
+          <label className="finance-pie-month">
+            <span className="finance-pie-month-label">Month</span>
+            <ThemedSelect
+              aria-label="Chart month"
+              value={monthValue}
+              onChange={onMonthChange}
+              options={monthOptions}
+            />
+          </label>
+          {onExportMonth && (
+            <button
+              type="button"
+              className="settings-submit day-status-secondary finance-export-btn"
+              onClick={onExportMonth}
+            >
+              <DownloadSimple size={13} weight="bold" aria-hidden />
+              Export CSV
+            </button>
+          )}
+        </div>
       </div>
       {slices.length === 0 ? (
         <p className="settings-help">{emptyLabel}</p>
