@@ -252,6 +252,46 @@
   animation: fade-up 0.6s ease-out both;
 }
 
+.brand-typewriter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.15em;
+}
+
+.brand-typewriter-text {
+  white-space: pre;
+}
+
+.brand-caret {
+  display: inline-block;
+  width: 0.08em;
+  height: 0.85em;
+  margin-left: 0.08em;
+  border-radius: 1px;
+  background: var(--accent);
+  transform: translateY(0.06em);
+  animation: brand-caret-blink 0.85s steps(1) infinite;
+}
+
+@keyframes brand-caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-caret {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 .brand-sub {
   margin: 0.55rem 0 0;
   font-size: 1.05rem;
@@ -923,14 +963,20 @@
   right: 1.25rem;
   bottom: 12.5rem;
   width: min(420px, calc(100vw - 2rem));
-  max-height: min(78vh, 680px);
-  overflow: auto;
+  max-width: calc(100vw - 2rem);
+  /* Keep the panel below the top of the viewport (bottom offset + padding). */
+  max-height: min(680px, calc(100dvh - 14rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
   padding: 1.15rem 1.15rem 1.35rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-solid);
   box-shadow: var(--shadow);
   animation: settings-rise 0.22s ease-out both;
+  box-sizing: border-box;
 }
 
 .rewards-root {
@@ -952,14 +998,16 @@
   right: 1.25rem;
   bottom: 12.5rem;
   width: min(420px, calc(100vw - 2rem));
-  max-height: min(78vh, 680px);
+  max-height: min(680px, calc(100dvh - 14rem));
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 1.15rem 1.15rem 1.35rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-solid);
   box-shadow: var(--shadow);
   animation: settings-rise 0.22s ease-out both;
+  box-sizing: border-box;
 }
 
 .day-status-root {
@@ -2078,7 +2126,16 @@
   font-size: 0.82rem;
 }
 
+.games-menu {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
 .games-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2207,12 +2264,35 @@
   line-height: 1.4;
 }
 
+.game-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
+
 .game-view-header {
+  flex-shrink: 0;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  background: var(--surface-solid);
+}
+
+.game-view-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
 }
 
 .game-view-header h3 {
@@ -2221,6 +2301,9 @@
   font-family: var(--font-display);
   font-size: 1.25rem;
   color: var(--brand-deep);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .game-back,
@@ -2232,6 +2315,7 @@
   padding: 0.3rem 0.7rem;
   cursor: pointer;
   font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .game-help {
@@ -2239,6 +2323,7 @@
   color: var(--ink-soft);
   font-size: 0.88rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .game-win {
@@ -2275,29 +2360,36 @@
   display: grid;
   gap: 0;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 2px solid var(--brand-deep);
   border-radius: 10px;
   overflow: hidden;
   background: var(--brand-deep);
+  box-sizing: border-box;
 }
 
 .sudoku-row {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  min-width: 0;
 }
 
 .sudoku-cell {
   aspect-ratio: 1;
+  min-width: 0;
+  width: 100%;
   border: 0;
   border-right: 1px solid var(--border-strong);
   border-bottom: 1px solid var(--border-strong);
   background: var(--sudoku-cell);
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: clamp(0.85rem, 3.2vw, 1.05rem);
+  font-size: clamp(0.7rem, 2.8vw, 1.05rem);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
+  line-height: 1;
 }
 
 .sudoku-cell.box-right {
@@ -2337,18 +2429,23 @@
 
 .sudoku-pad {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.45rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
   margin-top: 0.9rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .sudoku-pad-btn {
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--sudoku-pad);
   color: var(--brand-deep);
   font-weight: 600;
-  padding: 0.55rem 0;
+  font-size: clamp(0.78rem, 2.6vw, 0.95rem);
+  padding: 0.5rem 0.15rem;
   cursor: pointer;
 }
 
@@ -2358,7 +2455,7 @@
 
 .sudoku-pad-btn.clear {
   grid-column: span 1;
-  font-size: 0.78rem;
+  font-size: clamp(0.65rem, 2.2vw, 0.78rem);
 }
 
 .memory-stats {
@@ -2879,7 +2976,38 @@
     right: 0.75rem;
     left: 0.75rem;
     width: auto;
+    max-width: none;
+    top: max(0.75rem, env(safe-area-inset-top, 0px));
     bottom: 12.25rem;
+    max-height: none;
+    padding: 0.95rem 0.85rem 1.15rem;
+  }
+
+  .game-help {
+    font-size: 0.82rem;
+  }
+
+  .sudoku-board {
+    max-width: min(100%, 360px);
+    margin-inline: auto;
+  }
+
+  .sudoku-cell {
+    font-size: clamp(0.65rem, 3.6vw, 0.95rem);
+  }
+
+  .sudoku-pad {
+    gap: 0.3rem;
+  }
+
+  .sudoku-pad-btn {
+    padding: 0.45rem 0.1rem;
+  }
+
+  .game-back,
+  .game-action {
+    padding: 0.28rem 0.55rem;
+    font-size: 0.8rem;
   }
 
   .day-status-panel {
