@@ -17,15 +17,31 @@ const PERMISSION_ASKED_KEY = 'office-visit-notif-asked'
 /** Survives React Strict Mode remounts (refs do not). */
 const claimedThisPageLoad = new Set<string>()
 
-export type ReminderKind = 'unmarked_today' | 'on_edge'
+export type ReminderKind = 'unmarked_today' | 'on_edge' | 'weekly_digest'
 
 function todayKey(today: Date = startOfToday()): string {
   return toDateKey(today.getFullYear(), today.getMonth(), today.getDate())
 }
 
+/** Local Monday of the week containing `today` (YYYY-MM-DD). */
+function weekMondayKey(today: Date = startOfToday()): string {
+  const monday = new Date(today)
+  const day = monday.getDay()
+  const delta = day === 0 ? -6 : 1 - day
+  monday.setDate(monday.getDate() + delta)
+  return toDateKey(monday.getFullYear(), monday.getMonth(), monday.getDate())
+}
+
+function isMonday(today: Date): boolean {
+  return today.getDay() === 1
+}
+
 function reminderStorageKey(kind: ReminderKind, today: Date = startOfToday()): string {
   if (kind === 'unmarked_today') {
     return `${REMINDER_PREFIX}:unmarked:${todayKey(today)}`
+  }
+  if (kind === 'weekly_digest') {
+    return `${REMINDER_PREFIX}:week:${weekMondayKey(today)}`
   }
   const monthKey = monthStorageKey(today.getFullYear(), today.getMonth())
   return `${REMINDER_PREFIX}:edge:${monthKey}:${todayKey(today)}`
@@ -85,7 +101,13 @@ export function isTodayUnmarkedWorkingDay(
 export function isOnEdgePace(
   data: AppData,
   today: Date = startOfToday(),
-): { onEdge: boolean; daysLeft: number; remaining: number; goal: number } {
+): {
+  onEdge: boolean
+  daysLeft: number
+  remaining: number
+  goal: number
+  canHitGoal: boolean
+} {
   const y = today.getFullYear()
   const m = today.getMonth()
   const attendance = getMonthAttendance(data.attendance, y, m)
@@ -101,6 +123,7 @@ export function isOnEdgePace(
     daysLeft: stats.daysLeftToGoal,
     remaining: stats.workingDaysRemaining,
     goal,
+    canHitGoal: stats.canHitGoal,
   }
 }
 
@@ -113,6 +136,34 @@ export function buildOnEdgeReminderMessage(
   remaining: number,
 ): string {
   return `On the edge — need ${daysLeft} more office day${daysLeft === 1 ? '' : 's'} and only ${remaining} working day${remaining === 1 ? '' : 's'} left. Go to office every remaining day.`
+}
+
+function plural(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`
+}
+
+/** Monday status line: office days still needed and working days left this month. */
+export function buildWeeklyDigestMessage(
+  daysLeft: number,
+  remaining: number,
+  canHitGoal: boolean,
+): string {
+  const working =
+    remaining === 0
+      ? 'no working days remaining'
+      : `${plural(remaining, 'working day')} remaining`
+
+  if (daysLeft === 0) {
+    return `This week: goal met — ${working}.`
+  }
+  const office = `${plural(daysLeft, 'office day')} left`
+  if (!canHitGoal) {
+    return `This week: ${office}, ${working} — goal is out of reach.`
+  }
+  if (daysLeft === remaining) {
+    return `This week: ${office}, ${working}. Office every remaining day.`
+  }
+  return `This week: ${office}, ${working}.`
 }
 
 export function notificationsSupported(): boolean {
@@ -175,6 +226,7 @@ export type ReminderResult = {
   kind: ReminderKind
   message: string
   title: string
+  duration?: number
 }
 
 /** Collect reminders that should fire today (not already shown). */
@@ -204,6 +256,19 @@ export function collectDueReminders(
     })
   }
 
+  if (isMonday(today) && !wasReminderShown('weekly_digest', today)) {
+    due.push({
+      kind: 'weekly_digest',
+      title: 'Week check-in',
+      message: buildWeeklyDigestMessage(
+        edge.daysLeft,
+        edge.remaining,
+        edge.canHitGoal,
+      ),
+      duration: 8000,
+    })
+  }
+
   return due
 }
 
@@ -221,15 +286,20 @@ export function deliverReminders(
     // Claim before toast so Strict Mode / double effects cannot double-fire.
     if (!claimReminder(reminder.kind, today)) continue
 
-    const toastId = `reminder-${reminder.kind}-${todayKey(today)}`
-    options.toast(reminder.message, { duration: 6000, id: toastId })
+    const slot =
+      reminder.kind === 'weekly_digest' ? weekMondayKey(today) : todayKey(today)
+    const toastId = `reminder-${reminder.kind}-${slot}`
+    options.toast(reminder.message, {
+      duration: reminder.duration ?? 6000,
+      id: toastId,
+    })
     trackEvent('reminder_shown', { kind: reminder.kind })
 
     if (options.useBrowserNotifications) {
       const shown = showBrowserNotification(
         reminder.title,
         reminder.message,
-        `officeil-${reminder.kind}-${todayKey(today)}`,
+        `officeil-${reminder.kind}-${slot}`,
       )
       if (shown) {
         trackEvent('reminder_browser', { kind: reminder.kind })

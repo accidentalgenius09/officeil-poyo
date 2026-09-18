@@ -9,6 +9,7 @@ import {
   timingSafeEqual,
 } from 'crypto'
 import { MongoClient, ObjectId } from 'mongodb'
+import { runWeeklyDigest, runHolidayEveReminders } from './weeklyDigest.js'
 
 // Windows/router DNS often fails Node's SRV lookup for mongodb+srv://
 dns.setServers(['8.8.8.8', '1.1.1.1'])
@@ -263,6 +264,57 @@ function unwrapAttendanceDoc(doc) {
   }
   return unwrapped
 }
+
+function cronAuthorized(req) {
+  const secret = process.env.CRON_SECRET
+  const header = req.get('authorization') || ''
+  if (!secret || header.length !== `Bearer ${secret}`.length) return false
+  try {
+    return timingSafeEqual(
+      Buffer.from(header),
+      Buffer.from(`Bearer ${secret}`),
+    )
+  } catch {
+    return false
+  }
+}
+
+app.get('/api/cron/weekly-digest', async (req, res) => {
+  if (!cronAuthorized(req)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  await withDb(res, async (db) => {
+    const result = await runWeeklyDigest(db, {
+      force: req.query.force === '1',
+      unwrap: unwrapAttendanceDoc,
+    })
+    if (result.error) return res.status(503).json(result)
+    if (result.failed?.length) return res.status(502).json(result)
+    res.json(result)
+  })
+})
+
+app.get('/api/cron/holiday-eve', async (req, res) => {
+  if (!cronAuthorized(req)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  await withDb(res, async (db) => {
+    const asOf =
+      typeof req.query.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.asOf)
+        ? req.query.asOf
+        : undefined
+    const result = await runHolidayEveReminders(db, {
+      force: req.query.force === '1',
+      asOf,
+      unwrap: unwrapAttendanceDoc,
+    })
+    if (result.error) return res.status(503).json(result)
+    if (result.failed?.length) return res.status(502).json(result)
+    res.json(result)
+  })
+})
 
 app.get('/api/health', async (_req, res) => {
   await withDb(res, async () => {

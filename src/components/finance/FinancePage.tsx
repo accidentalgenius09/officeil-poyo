@@ -26,6 +26,7 @@ import { trackEvent } from '../../lib/analytics'
 import { createDebouncedAppPersister } from '../../lib/persistQueue'
 import { exportFinanceMonthCsv } from '../../lib/exportCsv'
 import { AuthScreen } from '../AuthScreen'
+import { AppLoader } from '../common/AppLoader'
 import { ThemeToggle } from '../ThemeToggle'
 import { FinancePieChart } from './FinancePieChart'
 import { ThemedSelect } from './ThemedSelect'
@@ -120,6 +121,8 @@ export function FinancePage() {
     monthPrefix(new Date().getFullYear(), new Date().getMonth()),
   )
   const [txnLimit, setTxnLimit] = useState(10)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  const txnListRef = useRef<HTMLElement>(null)
   const skipNextSave = useRef(true)
   const persister = useRef(
     createDebouncedAppPersister(400, {
@@ -229,6 +232,32 @@ export function FinancePage() {
     [visible, txnLimit],
   )
   const hasMoreTxns = visible.length > txnLimit
+
+  useEffect(() => {
+    if (segment === 'setup' || !user) {
+      setShowScrollTop(false)
+      return
+    }
+    function update() {
+      const list = txnListRef.current
+      const header = document.querySelector('.finance-header')
+      if (!list) {
+        setShowScrollTop(false)
+        return
+      }
+      const listTop = list.getBoundingClientRect().top
+      const headerGone =
+        !header || header.getBoundingClientRect().bottom < 8
+      setShowScrollTop(headerGone && listTop < window.innerHeight * 0.9)
+    }
+    update()
+    document.addEventListener('scroll', update, { passive: true, capture: true })
+    window.addEventListener('resize', update)
+    return () => {
+      document.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [segment, user, visible.length, loadState])
   useEffect(() => {
     let cancelled = false
     const token = getStoredToken()
@@ -849,7 +878,7 @@ export function FinancePage() {
     return (
       <div className="auth-screen">
         <div className="app-bg" aria-hidden="true" />
-        <p className="auth-loading">Checking session…</p>
+        <AppLoader label="Opening finance…" />
       </div>
     )
   }
@@ -894,7 +923,7 @@ export function FinancePage() {
             </p>
           </div>
           {loadState === 'loading' && (
-            <p className="sync-status">Loading…</p>
+            <AppLoader compact label="Loading finance…" />
           )}
         </header>
 
@@ -1910,7 +1939,11 @@ export function FinancePage() {
         )}
 
         {segment !== 'setup' && (
-          <section className="finance-list" aria-labelledby={titleId}>
+          <section
+            ref={txnListRef}
+            className="finance-list"
+            aria-labelledby={titleId}
+          >
             <h2 className="finance-section-title">
               {segment === 'overview'
                 ? 'All transactions'
@@ -1977,6 +2010,21 @@ export function FinancePage() {
           </section>
         )}
       </main>
+      {showScrollTop && (
+        <button
+          type="button"
+          className="finance-scroll-top"
+          aria-label="Scroll to top"
+          onClick={() => {
+            const app = document.querySelector('.finance-app')
+            if (app instanceof HTMLElement) {
+              app.scrollTo({ top: 0, behavior: 'smooth' })
+            }
+            document.documentElement.scrollTo({ top: 0, behavior: 'smooth' })
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+        />
+      )}
     </div>
   )
 }

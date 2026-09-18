@@ -1,4 +1,14 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron/weekly-digest",
+      "schedule": "30 2 * * 1"
+    },
+    {
+      "path": "/api/cron/holiday-eve",
+      "schedule": "30 12 * * *"
+    }
+  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 30

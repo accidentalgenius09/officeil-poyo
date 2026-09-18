@@ -32,6 +32,8 @@ export function emptyProfile(): UserProfile {
     role: '',
     goDaily: false,
     officeDaysGoal: DEFAULT_OFFICE_GOAL,
+    weeklyDigestEmail: true,
+    holidayEveEmail: true,
   }
 }
 
@@ -300,6 +302,8 @@ function normalizeProfile(raw: unknown): UserProfile {
     role: typeof source.role === 'string' ? source.role.trim() : '',
     goDaily: Boolean(source.goDaily),
     officeDaysGoal: goal,
+    weeklyDigestEmail: source.weeklyDigestEmail !== false,
+    holidayEveEmail: source.holidayEveEmail !== false,
   }
 }
 

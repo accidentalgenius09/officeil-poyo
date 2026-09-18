@@ -26,8 +26,10 @@ import {
 } from "./lib/api";
 import { trackEvent } from "./lib/analytics";
 import { AuthScreen } from "./components/AuthScreen";
+import { AppLoader } from "./components/common/AppLoader";
 import { MonthHeader } from "./components/MonthHeader";
 import { SummaryCards } from "./components/SummaryCards";
+import { UpcomingStrip } from "./components/UpcomingStrip";
 import { CalendarGrid } from "./components/CalendarGrid";
 import { DayStatusPanel } from "./components/DayStatusPanel";
 import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
@@ -216,7 +218,7 @@ function App() {
     });
   }, [user, loadState, appData.settings.leaves, appData.settings.holidays]);
 
-  // Daily reminders: unmarked today + on-the-edge pace (toast + browser notification if allowed).
+  // Reminders: unmarked today, on-the-edge pace, and a Monday week digest.
   useEffect(() => {
     if (!user || loadState !== "ready") return;
 
@@ -588,7 +590,7 @@ function App() {
     return (
       <div className="auth-screen">
         <div className="app-bg" aria-hidden="true" />
-        <p className="auth-loading">Checking session…</p>
+        <AppLoader label="Gathering your days…" />
       </div>
     );
   }
@@ -620,7 +622,7 @@ function App() {
           <h1 className="brand-mark">Officeil Poyo?</h1>
           <p className="brand-sub">{brandSub}</p>
           {loadState === "loading" && (
-            <p className="sync-status">Loading from MongoDB…</p>
+            <AppLoader compact label="Loading calendar…" />
           )}
         </header>
 
@@ -636,6 +638,7 @@ function App() {
           goal={officeGoal}
           goDaily={profile.goDaily}
         />
+        <UpcomingStrip appData={appData} />
         <p className="hint">
           Click a day to set Office / WFH and add an optional work status note.
         </p>

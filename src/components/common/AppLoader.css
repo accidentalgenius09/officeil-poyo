@@ -1,0 +1,160 @@
+.app-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: var(--ink);
+}
+
+.app-loader-page {
+  position: relative;
+  width: 5.4rem;
+  padding: 0.55rem 0.55rem 0.65rem;
+  border-radius: 14px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
+  animation: app-loader-float 2.8s ease-in-out infinite;
+}
+
+.app-loader-binding {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0.35rem 0.4rem;
+}
+
+.app-loader-binding i {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0.45rem 0 color-mix(in srgb, var(--brand) 55%, transparent);
+}
+
+.app-loader-rule {
+  display: block;
+  height: 0.28rem;
+  margin-bottom: 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 18%, var(--muted-fill));
+  overflow: hidden;
+  position: relative;
+}
+
+.app-loader-rule::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+  animation: app-loader-ink 1.6s ease-in-out infinite;
+}
+
+.app-loader-days {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.28rem;
+}
+
+.app-loader-days i {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--muted-fill);
+  animation: app-loader-day 1.45s ease-in-out infinite;
+}
+
+.app-loader-label {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+
+.app-loader.is-compact {
+  flex-direction: row;
+  gap: 0.7rem;
+  margin-top: 0.55rem;
+}
+
+.app-loader.is-compact .app-loader-page {
+  width: 2.55rem;
+  padding: 0.28rem 0.28rem 0.34rem;
+  border-radius: 8px;
+  box-shadow: none;
+  animation: none;
+}
+
+.app-loader.is-compact .app-loader-binding {
+  display: none;
+}
+
+.app-loader.is-compact .app-loader-rule {
+  height: 0.16rem;
+  margin-bottom: 0.22rem;
+}
+
+.app-loader.is-compact .app-loader-days {
+  gap: 0.12rem;
+}
+
+.app-loader.is-compact .app-loader-label {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+@keyframes app-loader-day {
+  0%,
+  18%,
+  100% {
+    background: var(--muted-fill);
+    transform: scale(0.92);
+  }
+  42% {
+    background: var(--brand);
+    transform: scale(1);
+  }
+  62% {
+    background: var(--accent);
+    transform: scale(1);
+  }
+}
+
+@keyframes app-loader-ink {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+@keyframes app-loader-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-loader-page,
+  .app-loader-rule::after,
+  .app-loader-days i {
+    animation: none;
+  }
+
+  .app-loader-days i:nth-child(3n) {
+    background: var(--brand);
+  }
+
+  .app-loader-days i:nth-child(3n + 1) {
+    background: var(--accent);
+  }
+}
