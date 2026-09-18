@@ -15,11 +15,24 @@ import {
   computeStats,
 } from './attendance'
 
+export type HolidayUrgency = 'calm' | 'near' | 'eve' | 'today'
+
 export type UpcomingItem = {
   id: string
   kind: 'holiday' | 'leave' | 'goal'
   label: string
   detail: string
+  /** Present for holiday items — whole days until the holiday. */
+  daysUntil?: number | null
+  /** Present for holiday items — visual urgency stage. */
+  urgency?: HolidayUrgency
+}
+
+export function holidayUrgency(days: number | null): HolidayUrgency {
+  if (days === 0) return 'today'
+  if (days === 1) return 'eve'
+  if (days != null && days >= 2 && days <= 7) return 'near'
+  return 'calm'
 }
 
 function todayKey(today: Date = startOfToday()): string {
@@ -37,7 +50,10 @@ function formatShortDate(dateKey: string): string {
 }
 
 /** Whole calendar days from `from` (start of day) to `dateKey`. */
-function daysUntil(dateKey: string, from: Date = startOfToday()): number | null {
+export function daysUntil(
+  dateKey: string,
+  from: Date = startOfToday(),
+): number | null {
   const target = parseDateKey(dateKey)
   if (!target) return null
   const start = new Date(from.getFullYear(), from.getMonth(), from.getDate())
@@ -123,6 +139,8 @@ export function buildUpcomingItems(
       kind: 'holiday',
       label,
       detail: `${holiday.name} · ${formatShortDate(holiday.dateKey)}`,
+      daysUntil: days,
+      urgency: holidayUrgency(days),
     })
   }
 

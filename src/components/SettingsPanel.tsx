@@ -81,13 +81,6 @@ function RemindersSettingsBlock({
 
   return (
     <div className="settings-reminders">
-      {/* <p className="settings-help">
-        Once a day: toast if today is unmarked, or if you need office every
-        remaining working day to hit the goal. Mondays also get a week
-        check-in (office days left and working days remaining), once that
-        week. Enable browser notifications to also get OS alerts when the tab
-        is in the background.
-      </p> */}
       <div className="profile-daily">
         <div>
           <p className="profile-daily-title" id={digestToggleId}>

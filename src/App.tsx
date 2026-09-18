@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AppData, AuthUser, DayStatus, GoalReward } from "./types";
+import type { AppData, AuthUser, DayStatus, DayValue, GoalReward } from "./types";
 import {
   cacheAppData,
+  computeOfficeStreak,
   computeStats,
   dayValueFromRecord,
   getDayRecord,
@@ -440,6 +441,14 @@ function App() {
       month: monthStorageKey(year, month),
     });
 
+    const prevStreak = computeOfficeStreak(
+      appData.attendance,
+      appData.settings,
+    );
+    const currentBefore = getMonthAttendance(appData.attendance, year, month);
+    const previousEncoded: DayValue | undefined =
+      currentBefore.days[dateKey];
+
     setAppData((prev) => {
       const current = getMonthAttendance(prev.attendance, year, month);
       const existing = getDayRecord(current.days, dateKey);
@@ -515,6 +524,71 @@ function App() {
             id: rewardToastId(badge),
           });
           trackEvent("goal_reward_earned", { kind: badge.kind });
+        });
+      }
+
+      const nextStreak = computeOfficeStreak(
+        draft.attendance,
+        draft.settings,
+      );
+
+      if (prevStreak > 0 && nextStreak < prevStreak) {
+        const undoYear = year;
+        const undoMonth = month;
+        const undoKey = key;
+        const undoDateKey = dateKey;
+        const restoreValue = previousEncoded;
+        queueMicrotask(() => {
+          toast(
+            (t) => (
+              <span className="streak-break-toast">
+                <span>Streak snuffed — {prevStreak}-day flame is out</span>
+                <button
+                  type="button"
+                  className="streak-undo-btn"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    setAppData((latest) => {
+                      const monthAtt = getMonthAttendance(
+                        latest.attendance,
+                        undoYear,
+                        undoMonth,
+                      );
+                      const days = { ...monthAtt.days };
+                      if (restoreValue === undefined) {
+                        delete days[undoDateKey];
+                      } else {
+                        days[undoDateKey] = restoreValue;
+                      }
+                      return {
+                        ...latest,
+                        attendance: {
+                          ...latest.attendance,
+                          [undoKey]: {
+                            year: undoYear,
+                            month: undoMonth,
+                            days,
+                          },
+                        },
+                      };
+                    });
+                    trackEvent("streak_break_undo", { streak: prevStreak });
+                    toast.success("Streak restored");
+                  }}
+                >
+                  Undo
+                </button>
+              </span>
+            ),
+            {
+              id: "streak-break",
+              duration: 8000,
+            },
+          );
+          trackEvent("streak_break", {
+            from: prevStreak,
+            to: nextStreak,
+          });
         });
       }
 

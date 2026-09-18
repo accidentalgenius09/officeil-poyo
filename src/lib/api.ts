@@ -36,11 +36,31 @@ export function clearSession(): void {
 }
 
 async function parseError(res: Response): Promise<string> {
+  const raw = await res.text().catch(() => '')
   try {
-    const body = await res.json()
-    if (body?.error) return String(body.error)
+    const body = JSON.parse(raw) as { error?: string; hint?: string }
+    if (body?.error) {
+      return body.hint ? `${body.error}. ${body.hint}` : String(body.error)
+    }
   } catch {
-    /* ignore */
+    /* plain text body */
+  }
+
+  const trimmed = raw.replace(/\s+/g, ' ').trim()
+  if (/cannot\s+(get|post|put|patch|delete)\s+/i.test(trimmed)) {
+    return 'This feature is not available on the API yet. Restart the local API (or redeploy) and try again.'
+  }
+  if (trimmed && trimmed.length < 180 && !trimmed.startsWith('<')) {
+    return trimmed
+  }
+  if (res.status === 503) {
+    return 'The writing service is not configured right now.'
+  }
+  if (res.status === 502) {
+    return 'Could not reach the writing service.'
+  }
+  if (res.status === 401) {
+    return 'Please sign in again.'
   }
   return `Request failed (${res.status})`
 }

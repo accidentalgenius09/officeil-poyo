@@ -1,10 +1,17 @@
 import type { MonthStats } from '../types'
-import { Trophy } from '@phosphor-icons/react'
+import { Fire, Trophy } from '@phosphor-icons/react'
 
 type SummaryCardsProps = {
   stats: MonthStats
   goal: number
   goDaily: boolean
+}
+
+function streakFlameTier(streak: number): 'out' | 'small' | 'medium' | 'large' {
+  if (streak <= 0) return 'out'
+  if (streak <= 4) return 'small'
+  if (streak <= 9) return 'medium'
+  return 'large'
 }
 
 export function SummaryCards({ stats, goal, goDaily }: SummaryCardsProps) {
@@ -22,6 +29,7 @@ export function SummaryCards({ stats, goal, goDaily }: SummaryCardsProps) {
   const progress =
     goal > 0 ? Math.min(100, Math.round((daysInOffice / goal) * 100)) : 0
   const goalMet = daysLeftToGoal === 0 && goal > 0
+  const flameTier = streakFlameTier(officeStreak)
 
   return (
     <section className="cards" aria-label="Monthly summary">
@@ -75,7 +83,16 @@ export function SummaryCards({ stats, goal, goDaily }: SummaryCardsProps) {
         aria-live="polite"
       >
         <p className="card-label">Pace & streak</p>
-        <p className="card-value card-value-sm">
+        <p className="card-value card-value-sm card-streak-row">
+          <span
+            className={`streak-flame streak-flame--${flameTier}`}
+            aria-hidden
+          >
+            <Fire
+              size={flameTier === 'large' ? 26 : flameTier === 'medium' ? 22 : 18}
+              weight={flameTier === 'out' ? 'regular' : 'fill'}
+            />
+          </span>
           <span className="card-emphasis">{officeStreak}</span>
           <span className="card-muted"> day streak</span>
         </p>

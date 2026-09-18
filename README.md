@@ -34,11 +34,11 @@
 | Area | What you get |
 | --- | --- |
 | **Auth** | Email / password register & sign-in; per-user MongoDB data; password show/hide (eye icon) |
-| **Calendar** | Click a day to open the day panel: set **office / WFH / clear**, optional work note; previous unmarked working day auto-fills as **WFH** |
+| **Calendar** | Click a day to open the day panel: set **office / WFH / clear**, optional work note; previous unmarked working day auto-fills as **WFH**; holiday cells animate a countdown (flag / rocket / paper tear) |
 | **Work status** | Short daily note (**Save note only**) or **Groq** write-up only (**Elaborate & save**), stored with that day in MongoDB |
 | **Goals** | Monthly target, remaining working days, WFH count |
-| **Upcoming** | Strip under summary cards: next holiday (with days remaining, e.g. “in 10 days”), next leave (or current leave), and current-month goal safety (“safe after N more office days”) |
-| **Pace & streak** | Consecutive office-day streak (skips weekends, holidays, full leave) plus a pace note: on pace / on the edge / cannot hit goal / goal met |
+| **Upcoming** | Strip under summary cards: next holiday with countdown (rocket when 2–7 days out; tear-off when eve/today — same icons animate on that day in the calendar grid), next leave (or current leave), and current-month goal safety |
+| **Pace & streak** | Consecutive office-day streak with a living flame (grows with streak; break shows a toast with **Undo**), plus a pace note: on pace / on the edge / cannot hit goal / goal met |
 | **Presets** | Every working day · 3×/week · 2×/week · classic 12 |
 | **Goal rewards** | Monthly goals, logger & office streaks, hybrid/week badges, early bird, clutch, overachiever, comeback, no-gap, quarter/half-year/perfect year, century club, planner, holiday curator, clean calendar, New Year starter, month of Sundays, night owl, weekend warrior |
 | **Finance** | Money FAB → `/finance`: **Overview** (add/edit txn, optional recurring expense, month pie chart + CSV export), Income/Expenses lists, **Setup** (add/edit salaries, EMIs, investments/SIPs, recurring expenses, custom categories); recurring posts sync to Mongo |
@@ -192,9 +192,9 @@ API examples: `/api/attendance`, `/api/auth/login`, `/api/auth/register`, `/api/
 1. **Register / sign in** — email + password; use the eye icon to show or hide the password  
 2. **Theme** — celestial toggle (top-right); preference is remembered. The calendar brand mark typewrites and cycles **Officeil Poyo?** / **Went to office?** / **Still on pace?** / **WFH today?**  
 3. **Settings** (gear, bottom-right) — profile, policy presets, leave, holidays, CSV export, **Email Monday check-in**, **Email holiday reminder**, **Enable browser notifications**, sign out  
-4. **Calendar** — click a day to open the day panel: set **Office / WFH / Clear**, optionally write a short work note. **Elaborate & save** calls Groq and stores **only** the elaborated summary (not the short draft). **Save note only** stores your raw note. Days with a saved note or summary show a small dot. If the previous working day (skipping weekends, holidays, and full leave) was left unmarked, it is auto-marked **WFH**  
-5. **Summary cards** — **Office days** (count + WFH + this week), **Goal progress** (left to goal / met), and **Pace & streak** (consecutive office streak + whether you can still hit the monthly goal: on pace, on the edge, cannot hit, or met)  
-6. **Upcoming** — under the cards: next holiday with countdown (e.g. “Next holiday (in 10 days)”), next leave (or current leave), and whether this month’s goal is safe after N more office days (uses today’s month even if you browse another month)  
+4. **Calendar** — click a day to open the day panel: set **Office / WFH / Clear**, optionally write a short work note. **Elaborate & save** calls Groq and stores **only** the elaborated summary (not the short draft). **Save note only** stores your raw note. Days with a saved note or summary show a small dot. Holiday cells animate by stage (soft flag glow 8+ days, rocket launch this week, paper tear on eve/today). If the previous working day (skipping weekends, holidays, and full leave) was left unmarked, it is auto-marked **WFH**. Breaking an office streak shows a toast with **Undo**  
+5. **Summary cards** — **Office days** (count + WFH + this week), **Goal progress** (left to goal / met), and **Pace & streak** (flame + consecutive office streak + pace note)  
+6. **Upcoming** — under the cards: next holiday with countdown (rocket / tear-off as the day nears), next leave (or current leave), and whether this month’s goal is safe after N more office days (uses today’s month even if you browse another month)  
 7. **Reminders** — after load, if today is an unmarked working day or you are on the edge of your monthly goal, you get a toast once that day. On Monday you also get a week check-in toast once that week. With notifications enabled, those alerts can appear as browser/OS notifications. When Brevo is configured: Monday 8:00 India time week-check email; **6:00 India time the day before any holiday** on your calendar (holiday name + date). Toggle under **Settings → Account**  
 8. **Rewards** (trophy icon) — monthly goals, update streaks (7/30/60/100 days), perfect year; history with dates; unlock toasts appear once per badge  
 9. **Finance** (money icon, above rewards) — `/finance` with **Overview** (add/edit transactions, optional recurring expense, month-selectable pie chart + **Export CSV** for that month; transaction lists show 10 at a time with **See more**; a simple scroll-to-top control appears after you scroll to All transactions), **Income** / **Expenses** lists, and **Setup** (add/edit salaries with allowances, EMIs, investment SIPs, recurring expenses, custom categories).  
@@ -228,10 +228,11 @@ src/
     AuthScreen.tsx       # Sign in / register (+ password show/hide)
     common/
       AppLoader.tsx      # Shared themed loader (session + section loads)
-    CalendarGrid.tsx     # Month grid (office / WFH / leave / holiday / note dot)
+    CalendarGrid.tsx     # Month grid (office / WFH / leave / holiday tear-crack / note dot)
+    HolidayTearCrack.tsx # Holiday countdown overlays (flag / rocket / paper tear)
     DayStatusPanel.tsx   # Day status + work note / Groq elaborate
-    SummaryCards.tsx     # Office days, goal progress, pace & streak
-    UpcomingStrip.tsx    # Next holiday / leave / goal safety under cards
+    SummaryCards.tsx     # Office days, goal progress, pace & streak flame
+    UpcomingStrip.tsx    # Next holiday countdown / leave / goal safety under cards
     BrandTypewriter.tsx  # Animated calendar brand mark (type / backspace cycle)
     SettingsPanel.tsx    # Profile, presets, leave, holidays, CSV, email toggles, notifications, sign out
     RewardsPanel.tsx     # Trophy FAB + badge history modal
@@ -249,7 +250,7 @@ src/
     presets.ts           # Policy preset definitions
     rewards.ts           # Goal badges + game console themes
     reminders.ts         # Daily unmarked / on-edge toasts, Monday digest, browser notifications
-    upcoming.ts          # Next holiday / leave / goal-safety strip helpers
+    upcoming.ts          # Next holiday urgency / leave / goal-safety strip helpers
     analytics.ts         # GA4 custom events
     sudoku.ts            # Sudoku helpers
   App.tsx                # Calendar app (requires sign-in)
