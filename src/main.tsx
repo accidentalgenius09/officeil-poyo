@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast'
 import App from './App'
 import { FinancePage } from './components/finance/FinancePage'
 import './index.css'
+import './components/common/AppLoader.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

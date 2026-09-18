@@ -42,6 +42,10 @@ export type UserProfile = {
   goDaily: boolean
   /** Required office days per month when goDaily is false. */
   officeDaysGoal: number
+  /** Monday digest email to the sign-in address. Missing means on. */
+  weeklyDigestEmail?: boolean
+  /** Email at 6pm India time the day before a holiday. Missing means on. */
+  holidayEveEmail?: boolean
 }
 
 export type RewardKind =

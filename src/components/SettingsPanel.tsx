@@ -51,18 +51,22 @@ function portionLabel(portion: LeavePortion): string {
   return 'Full day'
 }
 
-function RemindersSettingsBlock() {
+function RemindersSettingsBlock({
+  digestEmail,
+  onToggleDigestEmail,
+  holidayEveEmail,
+  onToggleHolidayEveEmail,
+}: {
+  digestEmail: boolean
+  onToggleDigestEmail: (next: boolean) => void
+  holidayEveEmail: boolean
+  onToggleHolidayEveEmail: (next: boolean) => void
+}) {
+  const digestToggleId = useId()
+  const holidayEveToggleId = useId()
   const [permission, setPermission] = useState(() => getNotificationPermission())
-
-  if (!notificationsSupported()) {
-    return (
-      <p className="settings-help">
-        Browser notifications are not supported in this browser. In-app toasts
-        still remind you when today is unmarked or you are on the edge of your
-        goal.
-      </p>
-    )
-  }
+  const digestOn = digestEmail !== false
+  const holidayEveOn = holidayEveEmail !== false
 
   async function enableNotifications() {
     const next = await ensureNotificationPermission()
@@ -77,12 +81,64 @@ function RemindersSettingsBlock() {
 
   return (
     <div className="settings-reminders">
-      <p className="settings-help">
+      {/* <p className="settings-help">
         Once a day: toast if today is unmarked, or if you need office every
-        remaining working day to hit the goal. Enable browser notifications to
-        also get OS alerts when the tab is in the background.
-      </p>
-      {permission === 'granted' ? (
+        remaining working day to hit the goal. Mondays also get a week
+        check-in (office days left and working days remaining), once that
+        week. Enable browser notifications to also get OS alerts when the tab
+        is in the background.
+      </p> */}
+      <div className="profile-daily">
+        <div>
+          <p className="profile-daily-title" id={digestToggleId}>
+            Email Monday check-in
+          </p>
+          <p className="settings-help">
+            Sent to your sign-in address every Monday at 8:00 India time.
+            Same line as the in-app week check-in.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`toggle-btn${digestOn ? ' on' : ''}`}
+          role="switch"
+          aria-checked={digestOn}
+          aria-labelledby={digestToggleId}
+          onClick={() => onToggleDigestEmail(!digestOn)}
+        >
+          <span className="toggle-knob" />
+          <span className="toggle-label">{digestOn ? 'Yes' : 'No'}</span>
+        </button>
+      </div>
+      <div className="profile-daily">
+        <div>
+          <p className="profile-daily-title" id={holidayEveToggleId}>
+            Email holiday reminder
+          </p>
+          <p className="settings-help">
+            Sent at 6:00 India time the evening before a holiday on your
+            calendar.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`toggle-btn${holidayEveOn ? ' on' : ''}`}
+          role="switch"
+          aria-checked={holidayEveOn}
+          aria-labelledby={holidayEveToggleId}
+          onClick={() => onToggleHolidayEveEmail(!holidayEveOn)}
+        >
+          <span className="toggle-knob" />
+          <span className="toggle-label">{holidayEveOn ? 'Yes' : 'No'}</span>
+        </button>
+      </div>
+      {!notificationsSupported() ? (
+        <p className="settings-help">
+          Browser notifications are not supported in this browser. In-app
+          toasts still remind you when today is unmarked, when you are on the
+          edge of your goal, and with a Monday week check-in.
+        </p>
+      ) : permission === 'granted' ? (
         <p className="settings-help settings-reminders-status">
           Browser notifications are on.
         </p>
@@ -246,7 +302,18 @@ export function SettingsPanel({
           <p className="settings-help">
             Signed in as {userEmail || profile.email || 'your account'}.
           </p>
-          <RemindersSettingsBlock />
+          <RemindersSettingsBlock
+            digestEmail={profile.weeklyDigestEmail !== false}
+            onToggleDigestEmail={(next) => {
+              updateProfile({ weeklyDigestEmail: next })
+              trackEvent('toggle_weekly_digest_email', { enabled: next })
+            }}
+            holidayEveEmail={profile.holidayEveEmail !== false}
+            onToggleHolidayEveEmail={(next) => {
+              updateProfile({ holidayEveEmail: next })
+              trackEvent('toggle_holiday_eve_email', { enabled: next })
+            }}
+          />
           <button
             type="button"
             className="settings-submit settings-danger"
