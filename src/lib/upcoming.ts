@@ -36,6 +36,15 @@ function formatShortDate(dateKey: string): string {
   })
 }
 
+/** Whole calendar days from `from` (start of day) to `dateKey`. */
+function daysUntil(dateKey: string, from: Date = startOfToday()): number | null {
+  const target = parseDateKey(dateKey)
+  if (!target) return null
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  const end = new Date(target.getFullYear(), target.getMonth(), target.getDate())
+  return Math.round((end.getTime() - start.getTime()) / 86400000)
+}
+
 function portionSuffix(portion: LeavePortion): string {
   if (portion === 'am') return ' · AM'
   if (portion === 'pm') return ' · PM'
@@ -100,11 +109,19 @@ export function buildUpcomingItems(
 
   const holiday = findNextHoliday(settings, today)
   if (holiday) {
-    const isToday = holiday.dateKey === todayKey(today)
+    const days = daysUntil(holiday.dateKey, today)
+    const label =
+      days === 0
+        ? 'Holiday today'
+        : days === 1
+          ? 'Next holiday (in 1 day)'
+          : days != null && days > 1
+            ? `Next holiday (in ${days} days)`
+            : 'Next holiday'
     items.push({
       id: `holiday-${holiday.dateKey}`,
       kind: 'holiday',
-      label: isToday ? 'Holiday today' : 'Next holiday',
+      label,
       detail: `${holiday.name} · ${formatShortDate(holiday.dateKey)}`,
     })
   }
