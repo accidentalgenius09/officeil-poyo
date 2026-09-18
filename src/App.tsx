@@ -30,6 +30,7 @@ import { AppLoader } from "./components/common/AppLoader";
 import { MonthHeader } from "./components/MonthHeader";
 import { SummaryCards } from "./components/SummaryCards";
 import { UpcomingStrip } from "./components/UpcomingStrip";
+import { BrandTypewriter } from "./components/BrandTypewriter";
 import { CalendarGrid } from "./components/CalendarGrid";
 import { DayStatusPanel } from "./components/DayStatusPanel";
 import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
@@ -619,7 +620,7 @@ function App() {
       <ThemeToggle />
       <main className="shell">
         <header className="brand">
-          <h1 className="brand-mark">Officeil Poyo?</h1>
+          <BrandTypewriter />
           <p className="brand-sub">{brandSub}</p>
           {loadState === "loading" && (
             <AppLoader compact label="Loading calendar…" />

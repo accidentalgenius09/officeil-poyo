@@ -171,61 +171,63 @@ export function Game2048({ onBack }: Game2048Props) {
   }
 
   return (
-    <div className="game-2048">
-      <header className="games-header">
-        <button type="button" className="settings-close" onClick={onBack}>
-          Back
+    <div className="game-view game-2048" role="region" aria-labelledby={titleId}>
+      <header className="game-view-header">
+        <button type="button" className="game-back" onClick={onBack}>
+          Games
         </button>
-        <h2 id={titleId}>2048</h2>
-        <button type="button" className="settings-close" onClick={restart}>
+        <h3 id={titleId}>2048</h3>
+        <button type="button" className="game-action" onClick={restart}>
           New
         </button>
       </header>
 
-      <p className="game-2048-score">Score: {score}</p>
-      <p className="games-help">
-        Use arrow keys or swipe. Merge tiles to reach 2048.
-      </p>
-
-      {(won || over) && (
-        <p className={`game-2048-banner${over && !won ? ' lose' : ''}`}>
-          {won ? 'You reached 2048!' : 'No moves left'}
+      <div className="game-view-scroll">
+        <p className="game-2048-score">Score: {score}</p>
+        <p className="game-help">
+          Use arrow keys or swipe. Merge tiles to reach 2048.
         </p>
-      )}
 
-      <div
-        className="game-2048-board"
-        role="grid"
-        aria-labelledby={titleId}
-        onTouchStart={(e) => {
-          const t = e.changedTouches[0]
-          touchStart.current = { x: t.clientX, y: t.clientY }
-        }}
-        onTouchEnd={(e) => {
-          if (!touchStart.current) return
-          const t = e.changedTouches[0]
-          const dx = t.clientX - touchStart.current.x
-          const dy = t.clientY - touchStart.current.y
-          touchStart.current = null
-          if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return
-          if (Math.abs(dx) > Math.abs(dy)) {
-            applyMove(dx > 0 ? 'right' : 'left')
-          } else {
-            applyMove(dy > 0 ? 'down' : 'up')
-          }
-        }}
-      >
-        {board.map((row, r) =>
-          row.map((value, c) => (
-            <div
-              key={`${r}-${c}`}
-              className={`game-2048-tile tile-${value > 2048 ? 'max' : value}`}
-              role="gridcell"
-            >
-              {value || ''}
-            </div>
-          )),
+        {(won || over) && (
+          <p className={`game-2048-banner${over && !won ? ' lose' : ''}`}>
+            {won ? 'You reached 2048!' : 'No moves left'}
+          </p>
         )}
+
+        <div
+          className="game-2048-board"
+          role="grid"
+          aria-labelledby={titleId}
+          onTouchStart={(e) => {
+            const t = e.changedTouches[0]
+            touchStart.current = { x: t.clientX, y: t.clientY }
+          }}
+          onTouchEnd={(e) => {
+            if (!touchStart.current) return
+            const t = e.changedTouches[0]
+            const dx = t.clientX - touchStart.current.x
+            const dy = t.clientY - touchStart.current.y
+            touchStart.current = null
+            if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return
+            if (Math.abs(dx) > Math.abs(dy)) {
+              applyMove(dx > 0 ? 'right' : 'left')
+            } else {
+              applyMove(dy > 0 ? 'down' : 'up')
+            }
+          }}
+        >
+          {board.map((row, r) =>
+            row.map((value, c) => (
+              <div
+                key={`${r}-${c}`}
+                className={`game-2048-tile tile-${value > 2048 ? 'max' : value}`}
+                role="gridcell"
+              >
+                {value || ''}
+              </div>
+            )),
+          )}
+        </div>
       </div>
     </div>
   )

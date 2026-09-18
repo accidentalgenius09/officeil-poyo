@@ -111,48 +111,50 @@ export function GamesConsole({
             ) : activeGame === '2048' ? (
               <Game2048 onBack={() => setActiveGame(null)} />
             ) : (
-              <>
+              <div className="games-menu">
                 <header className="games-header">
                   <h2 id={titleId}>Game console</h2>
                   <button type="button" className="settings-close" onClick={onClose}>
                     Close
                   </button>
                 </header>
-                <p className="games-intro">
-                  Pick a quick game for a break. Sudoku keeps your spot if you
-                  leave mid-puzzle.
-                </p>
-                {rewardCount > 0 ? (
-                  <p className="games-reward-note">
-                    Reward unlocked: {gameRewardThemeLabel(rewardTheme)}
-                    {rewardCount >= 3
-                      ? ' (3+ badges this year)'
-                      : ' (from this year’s goal badges)'}
+                <div className="game-view-scroll">
+                  <p className="games-intro">
+                    Pick a quick game for a break. Sudoku keeps your spot if you
+                    leave mid-puzzle.
                   </p>
-                ) : (
-                  <p className="games-reward-note muted">
-                    Hit a monthly office goal this year to unlock a gold console
-                    theme. Themes reset each calendar year.
-                  </p>
-                )}
-                <ul className="games-list">
-                  {GAMES.map((game) => (
-                    <li key={game.id}>
-                      <button
-                        type="button"
-                        className="games-pick"
-                        onClick={() => {
-                          setActiveGame(game.id)
-                          trackEvent('play_game', { game: game.id })
-                        }}
-                      >
-                        <span className="games-pick-title">{game.title}</span>
-                        <span className="games-pick-blurb">{game.blurb}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
+                  {rewardCount > 0 ? (
+                    <p className="games-reward-note">
+                      Reward unlocked: {gameRewardThemeLabel(rewardTheme)}
+                      {rewardCount >= 3
+                        ? ' (3+ badges this year)'
+                        : ' (from this year’s goal badges)'}
+                    </p>
+                  ) : (
+                    <p className="games-reward-note muted">
+                      Hit a monthly office goal this year to unlock a gold console
+                      theme. Themes reset each calendar year.
+                    </p>
+                  )}
+                  <ul className="games-list">
+                    {GAMES.map((game) => (
+                      <li key={game.id}>
+                        <button
+                          type="button"
+                          className="games-pick"
+                          onClick={() => {
+                            setActiveGame(game.id)
+                            trackEvent('play_game', { game: game.id })
+                          }}
+                        >
+                          <span className="games-pick-title">{game.title}</span>
+                          <span className="games-pick-blurb">{game.blurb}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             )}
           </aside>
         </div>

@@ -47,6 +47,7 @@
 | **Export** | CSV for current month (day-by-day) or full year (month + office days) |
 | **Sync** | Per-user Atlas documents + local cache fallback while signed in |
 | **Theme** | Light / dark celestial toggle (saved; follows system on first visit) |
+| **Brand mark** | Calendar header typewriter cycles **Officeil Poyo?** → **Went to office?** → **Still on pace?** → **WFH today?** |
 | **Toasts** | Auth, sync, validation, badge unlocks, and reminders via [react-hot-toast](https://react-hot-toast.com/) (top-right; deduped so each alert shows once) |
 | **Reminders** | Once per calendar day: **unmarked today** or **on the edge**. **Mondays** get a week check-in toast + themed Brevo email at 8:00 India time. **The evening before a holiday** (6:00 India time) you also get a themed email naming tomorrow’s holiday(s). Optional browser/OS notifications. Toggle emails under **Settings → Account** (**Email Monday check-in**, **Email holiday reminder**) |
 | **Games** | Sudoku · Memory Match · 2048 |
@@ -189,7 +190,7 @@ API examples: `/api/attendance`, `/api/auth/login`, `/api/auth/register`, `/api/
 ## Usage
 
 1. **Register / sign in** — email + password; use the eye icon to show or hide the password  
-2. **Theme** — celestial toggle (top-right); preference is remembered  
+2. **Theme** — celestial toggle (top-right); preference is remembered. The calendar brand mark typewrites and cycles **Officeil Poyo?** / **Went to office?** / **Still on pace?** / **WFH today?**  
 3. **Settings** (gear, bottom-right) — profile, policy presets, leave, holidays, CSV export, **Email Monday check-in**, **Email holiday reminder**, **Enable browser notifications**, sign out  
 4. **Calendar** — click a day to open the day panel: set **Office / WFH / Clear**, optionally write a short work note. **Elaborate & save** calls Groq and stores **only** the elaborated summary (not the short draft). **Save note only** stores your raw note. Days with a saved note or summary show a small dot. If the previous working day (skipping weekends, holidays, and full leave) was left unmarked, it is auto-marked **WFH**  
 5. **Summary cards** — **Office days** (count + WFH + this week), **Goal progress** (left to goal / met), and **Pace & streak** (consecutive office streak + whether you can still hit the monthly goal: on pace, on the edge, cannot hit, or met)  
@@ -231,6 +232,7 @@ src/
     DayStatusPanel.tsx   # Day status + work note / Groq elaborate
     SummaryCards.tsx     # Office days, goal progress, pace & streak
     UpcomingStrip.tsx    # Next holiday / leave / goal safety under cards
+    BrandTypewriter.tsx  # Animated calendar brand mark (type / backspace cycle)
     SettingsPanel.tsx    # Profile, presets, leave, holidays, CSV, email toggles, notifications, sign out
     RewardsPanel.tsx     # Trophy FAB + badge history modal
     FinanceFab.tsx       # Money FAB → /finance
