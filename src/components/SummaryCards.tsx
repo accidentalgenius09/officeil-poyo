@@ -1,4 +1,5 @@
 import type { MonthStats } from '../types'
+import { Trophy } from '@phosphor-icons/react'
 
 type SummaryCardsProps = {
   stats: MonthStats
@@ -20,6 +21,7 @@ export function SummaryCards({ stats, goal, goDaily }: SummaryCardsProps) {
   } = stats
   const progress =
     goal > 0 ? Math.min(100, Math.round((daysInOffice / goal) * 100)) : 0
+  const goalMet = daysLeftToGoal === 0 && goal > 0
 
   return (
     <section className="cards" aria-label="Monthly summary">
@@ -34,19 +36,37 @@ export function SummaryCards({ stats, goal, goDaily }: SummaryCardsProps) {
         </p>
       </article>
 
-      <article className="card">
+      <article className={`card${goalMet ? ' card-reward' : ''}`}>
         <p className="card-label">Goal progress</p>
         <p className="card-value">
-          <span className="card-emphasis">{daysLeftToGoal}</span>
-          <span className="card-muted"> left to {goal}</span>
+          {goalMet ? (
+            <>
+              <span className="card-emphasis">Done</span>
+              <span className="card-muted"> / {goal}</span>
+            </>
+          ) : (
+            <>
+              <span className="card-emphasis">{daysLeftToGoal}</span>
+              <span className="card-muted"> left to {goal}</span>
+            </>
+          )}
         </p>
         <div className="progress-track" aria-hidden="true">
           <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
         <p className="card-note">
-          {workingDaysRemaining} working day
-          {workingDaysRemaining === 1 ? '' : 's'} remaining
-          {goDaily ? ' · daily target' : ''}
+          {goalMet ? (
+            <span className="reward-met">
+              <Trophy size={14} weight="fill" aria-hidden /> Goal met — badge
+              earned
+            </span>
+          ) : (
+            <>
+              {workingDaysRemaining} working day
+              {workingDaysRemaining === 1 ? '' : 's'} remaining
+              {goDaily ? ' · daily target' : ''}
+            </>
+          )}
         </p>
       </article>
 

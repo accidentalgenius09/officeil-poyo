@@ -107,14 +107,40 @@ export async function fetchAppData(): Promise<AppData> {
 }
 
 export async function persistAppData(data: AppData): Promise<void> {
+  const payload = normalizeAppData(data)
   const res = await fetch(`${API_BASE}/attendance`, {
     method: 'PUT',
     headers: authHeaders(),
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      attendance: payload.attendance,
+      settings: payload.settings,
+      finance: payload.finance,
+    }),
   })
   if (!res.ok) {
     if (res.status === 401) clearSession()
     throw new Error(await parseError(res))
+  }
+}
+
+export async function elaborateWorkStatus(input: {
+  note: string
+}): Promise<{ note: string; summary: string }> {
+  const res = await fetch(`${API_BASE}/work-status/elaborate`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      note: input.note,
+    }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) clearSession()
+    throw new Error(await parseError(res))
+  }
+  const data = await res.json()
+  return {
+    note: String(data.note ?? input.note),
+    summary: String(data.summary ?? ''),
   }
 }
 

@@ -13,7 +13,13 @@ import { POLICY_PRESETS } from '../lib/presets'
 import { exportMonthCsv, exportYearCsv } from '../lib/exportCsv'
 import type { AppData } from '../types'
 import { trackEvent } from '../lib/analytics'
+import {
+  ensureNotificationPermission,
+  getNotificationPermission,
+  notificationsSupported,
+} from '../lib/reminders'
 import { toast } from 'react-hot-toast'
+import { ThemedDatePicker } from './ThemedDatePicker'
 
 type SettingsPanelProps = {
   open: boolean
@@ -43,6 +49,112 @@ function portionLabel(portion: LeavePortion): string {
   if (portion === 'am') return 'AM'
   if (portion === 'pm') return 'PM'
   return 'Full day'
+}
+
+function RemindersSettingsBlock({
+  digestEmail,
+  onToggleDigestEmail,
+  holidayEveEmail,
+  onToggleHolidayEveEmail,
+}: {
+  digestEmail: boolean
+  onToggleDigestEmail: (next: boolean) => void
+  holidayEveEmail: boolean
+  onToggleHolidayEveEmail: (next: boolean) => void
+}) {
+  const digestToggleId = useId()
+  const holidayEveToggleId = useId()
+  const [permission, setPermission] = useState(() => getNotificationPermission())
+  const digestOn = digestEmail !== false
+  const holidayEveOn = holidayEveEmail !== false
+
+  async function enableNotifications() {
+    const next = await ensureNotificationPermission()
+    setPermission(next)
+    trackEvent('enable_notifications', { permission: next })
+    if (next === 'granted') {
+      toast.success('Browser notifications enabled')
+    } else if (next === 'denied') {
+      toast.error('Notifications blocked — allow them in browser settings')
+    }
+  }
+
+  return (
+    <div className="settings-reminders">
+      {/* <p className="settings-help">
+        Once a day: toast if today is unmarked, or if you need office every
+        remaining working day to hit the goal. Mondays also get a week
+        check-in (office days left and working days remaining), once that
+        week. Enable browser notifications to also get OS alerts when the tab
+        is in the background.
+      </p> */}
+      <div className="profile-daily">
+        <div>
+          <p className="profile-daily-title" id={digestToggleId}>
+            Email Monday check-in
+          </p>
+          <p className="settings-help">
+            Sent to your sign-in address every Monday at 8:00 India time.
+            Same line as the in-app week check-in.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`toggle-btn${digestOn ? ' on' : ''}`}
+          role="switch"
+          aria-checked={digestOn}
+          aria-labelledby={digestToggleId}
+          onClick={() => onToggleDigestEmail(!digestOn)}
+        >
+          <span className="toggle-knob" />
+          <span className="toggle-label">{digestOn ? 'Yes' : 'No'}</span>
+        </button>
+      </div>
+      <div className="profile-daily">
+        <div>
+          <p className="profile-daily-title" id={holidayEveToggleId}>
+            Email holiday reminder
+          </p>
+          <p className="settings-help">
+            Sent at 6:00 India time the evening before a holiday on your
+            calendar.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`toggle-btn${holidayEveOn ? ' on' : ''}`}
+          role="switch"
+          aria-checked={holidayEveOn}
+          aria-labelledby={holidayEveToggleId}
+          onClick={() => onToggleHolidayEveEmail(!holidayEveOn)}
+        >
+          <span className="toggle-knob" />
+          <span className="toggle-label">{holidayEveOn ? 'Yes' : 'No'}</span>
+        </button>
+      </div>
+      {!notificationsSupported() ? (
+        <p className="settings-help">
+          Browser notifications are not supported in this browser. In-app
+          toasts still remind you when today is unmarked, when you are on the
+          edge of your goal, and with a Monday week check-in.
+        </p>
+      ) : permission === 'granted' ? (
+        <p className="settings-help settings-reminders-status">
+          Browser notifications are on.
+        </p>
+      ) : (
+        <button
+          type="button"
+          className="settings-submit"
+          onClick={() => void enableNotifications()}
+        >
+          {permission === 'denied'
+            ? 'Notifications blocked'
+            : 'Enable browser notifications'}
+        </button>
+      )}
+    </div>
+  )
 }
 
 export function SettingsPanel({
@@ -190,6 +302,18 @@ export function SettingsPanel({
           <p className="settings-help">
             Signed in as {userEmail || profile.email || 'your account'}.
           </p>
+          <RemindersSettingsBlock
+            digestEmail={profile.weeklyDigestEmail !== false}
+            onToggleDigestEmail={(next) => {
+              updateProfile({ weeklyDigestEmail: next })
+              trackEvent('toggle_weekly_digest_email', { enabled: next })
+            }}
+            holidayEveEmail={profile.holidayEveEmail !== false}
+            onToggleHolidayEveEmail={(next) => {
+              updateProfile({ holidayEveEmail: next })
+              trackEvent('toggle_holiday_eve_email', { enabled: next })
+            }}
+          />
           <button
             type="button"
             className="settings-submit settings-danger"
@@ -366,19 +490,19 @@ export function SettingsPanel({
           <form className="settings-form" onSubmit={addLeave}>
             <label>
               From
-              <input
-                type="date"
+              <ThemedDatePicker
+                aria-label="Leave start date"
                 value={leaveStart}
-                onChange={(e) => setLeaveStart(e.target.value)}
+                onChange={setLeaveStart}
                 required
               />
             </label>
             <label>
               To
-              <input
-                type="date"
+              <ThemedDatePicker
+                aria-label="Leave end date"
                 value={leaveEnd}
-                onChange={(e) => setLeaveEnd(e.target.value)}
+                onChange={setLeaveEnd}
                 required
               />
             </label>
@@ -447,10 +571,10 @@ export function SettingsPanel({
           <form className="settings-form" onSubmit={addHoliday}>
             <label>
               Date
-              <input
-                type="date"
+              <ThemedDatePicker
+                aria-label="Holiday date"
                 value={holidayDate}
-                onChange={(e) => setHolidayDate(e.target.value)}
+                onChange={setHolidayDate}
                 required
               />
             </label>

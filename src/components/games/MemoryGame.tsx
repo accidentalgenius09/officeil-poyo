@@ -131,52 +131,54 @@ export function MemoryGame({ onBack }: MemoryGameProps) {
         </button>
       </header>
 
-      <p className="game-help">
-        Flip two cards at a time. Match every pair in as few moves as you can.
-      </p>
+      <div className="game-view-scroll">
+        <p className="game-help">
+          Flip two cards at a time. Match every pair in as few moves as you can.
+        </p>
 
-      <p className="memory-stats" aria-live="polite">
-        Moves: <strong>{moves}</strong>
-        {won && <span className="memory-win"> · Cleared!</span>}
-      </p>
+        <p className="memory-stats" aria-live="polite">
+          Moves: <strong>{moves}</strong>
+          {won && <span className="memory-win"> · Cleared!</span>}
+        </p>
 
-      <div className="memory-grid" role="grid" aria-label="Memory cards">
-        {cards.map((card, index) => {
-          const isFaceUp = card.matched || flipped.includes(index)
-          const Icon = card.Icon
-          return (
-            <button
-              type="button"
-              key={card.id}
-              className={`memory-card${isFaceUp ? ' face-up' : ''}${
-                card.matched ? ' matched' : ''
-              }`}
-              onClick={() => flipCard(index)}
-              disabled={locked || card.matched || won}
-              aria-label={
-                isFaceUp ? `${card.label} card` : `Hidden card ${index + 1}`
-              }
-            >
-              <span className="memory-face memory-back" aria-hidden="true">
-                <Question size={22} weight="bold" />
-              </span>
-              <span className="memory-face memory-front" aria-hidden="true">
-                <Icon size={26} weight="duotone" />
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {won && (
-        <div className="game-win memory-win-banner" role="status">
-          <p className="game-win-title">Nice work</p>
-          <p className="game-win-note">You cleared the board in {moves} moves.</p>
-          <button type="button" className="game-primary" onClick={reset}>
-            Play again
-          </button>
+        <div className="memory-grid" role="grid" aria-label="Memory cards">
+          {cards.map((card, index) => {
+            const isFaceUp = card.matched || flipped.includes(index)
+            const Icon = card.Icon
+            return (
+              <button
+                type="button"
+                key={card.id}
+                className={`memory-card${isFaceUp ? ' face-up' : ''}${
+                  card.matched ? ' matched' : ''
+                }`}
+                onClick={() => flipCard(index)}
+                disabled={locked || card.matched || won}
+                aria-label={
+                  isFaceUp ? `${card.label} card` : `Hidden card ${index + 1}`
+                }
+              >
+                <span className="memory-face memory-back" aria-hidden="true">
+                  <Question size={22} weight="bold" />
+                </span>
+                <span className="memory-face memory-front" aria-hidden="true">
+                  <Icon size={26} weight="duotone" />
+                </span>
+              </button>
+            )
+          })}
         </div>
-      )}
+
+        {won && (
+          <div className="game-win memory-win-banner" role="status">
+            <p className="game-win-title">Nice work</p>
+            <p className="game-win-note">You cleared the board in {moves} moves.</p>
+            <button type="button" className="game-primary" onClick={reset}>
+              Play again
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

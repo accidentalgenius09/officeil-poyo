@@ -9,6 +9,7 @@ import {
   timingSafeEqual,
 } from 'crypto'
 import { MongoClient, ObjectId } from 'mongodb'
+import { runWeeklyDigest, runHolidayEveReminders } from './weeklyDigest.js'
 
 // Windows/router DNS often fails Node's SRV lookup for mongodb+srv://
 dns.setServers(['8.8.8.8', '1.1.1.1'])
@@ -34,11 +35,28 @@ const emptySettings = {
   },
   leaves: [],
   holidays: [],
+  rewards: [],
+  activity: { lastActiveDate: null, streak: 0, behindMonths: [] },
 }
 
 const emptyAppData = () => ({
   attendance: {},
-  settings: { ...emptySettings, leaves: [], holidays: [] },
+  settings: {
+    ...emptySettings,
+    leaves: [],
+    holidays: [],
+    rewards: [],
+    activity: { lastActiveDate: null, streak: 0, behindMonths: [] },
+  },
+  finance: {
+    currency: 'INR',
+    transactions: [],
+    salaries: [],
+    emis: [],
+    investments: [],
+    recurringExpenses: [],
+    customCategories: { income: [], expense: [] },
+  },
 })
 
 const app = express()
@@ -201,10 +219,11 @@ function publicUser(user) {
 function normalizePayload(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
 
-  if (!('attendance' in body) && !('settings' in body)) {
+  if (!('attendance' in body) && !('settings' in body) && !('finance' in body)) {
     return {
       attendance: body,
       settings: emptySettings,
+      finance: emptyAppData().finance,
     }
   }
 
@@ -217,6 +236,10 @@ function normalizePayload(body) {
       body.settings && typeof body.settings === 'object'
         ? body.settings
         : emptySettings,
+    finance:
+      body.finance && typeof body.finance === 'object'
+        ? body.finance
+        : emptyAppData().finance,
   }
 }
 
@@ -226,15 +249,72 @@ function unwrapAttendanceDoc(doc) {
     data &&
     typeof data === 'object' &&
     !('attendance' in data) &&
-    !('settings' in data)
+    !('settings' in data) &&
+    !('finance' in data)
   ) {
     return {
       attendance: data,
       settings: doc?.settings ?? emptySettings,
+      finance: emptyAppData().finance,
     }
   }
-  return data ?? emptyAppData()
+  const unwrapped = data ?? emptyAppData()
+  if (!unwrapped.finance || typeof unwrapped.finance !== 'object') {
+    return { ...unwrapped, finance: emptyAppData().finance }
+  }
+  return unwrapped
 }
+
+function cronAuthorized(req) {
+  const secret = process.env.CRON_SECRET
+  const header = req.get('authorization') || ''
+  if (!secret || header.length !== `Bearer ${secret}`.length) return false
+  try {
+    return timingSafeEqual(
+      Buffer.from(header),
+      Buffer.from(`Bearer ${secret}`),
+    )
+  } catch {
+    return false
+  }
+}
+
+app.get('/api/cron/weekly-digest', async (req, res) => {
+  if (!cronAuthorized(req)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  await withDb(res, async (db) => {
+    const result = await runWeeklyDigest(db, {
+      force: req.query.force === '1',
+      unwrap: unwrapAttendanceDoc,
+    })
+    if (result.error) return res.status(503).json(result)
+    if (result.failed?.length) return res.status(502).json(result)
+    res.json(result)
+  })
+})
+
+app.get('/api/cron/holiday-eve', async (req, res) => {
+  if (!cronAuthorized(req)) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  await withDb(res, async (db) => {
+    const asOf =
+      typeof req.query.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.asOf)
+        ? req.query.asOf
+        : undefined
+    const result = await runHolidayEveReminders(db, {
+      force: req.query.force === '1',
+      asOf,
+      unwrap: unwrapAttendanceDoc,
+    })
+    if (result.error) return res.status(503).json(result)
+    if (result.failed?.length) return res.status(502).json(result)
+    res.json(result)
+  })
+})
 
 app.get('/api/health', async (_req, res) => {
   await withDb(res, async () => {
@@ -333,6 +413,34 @@ app.get('/api/auth/me', async (req, res) => {
   })
 })
 
+function isFinanceEmpty(finance) {
+  if (!finance || typeof finance !== 'object') return true
+  const tx = Array.isArray(finance.transactions) ? finance.transactions : []
+  const salaries = Array.isArray(finance.salaries) ? finance.salaries : []
+  const emis = Array.isArray(finance.emis) ? finance.emis : []
+  const investments = Array.isArray(finance.investments)
+    ? finance.investments
+    : []
+  const recurring = Array.isArray(finance.recurringExpenses)
+    ? finance.recurringExpenses
+    : []
+  const incomeCats = Array.isArray(finance.customCategories?.income)
+    ? finance.customCategories.income
+    : []
+  const expenseCats = Array.isArray(finance.customCategories?.expense)
+    ? finance.customCategories.expense
+    : []
+  return (
+    tx.length === 0 &&
+    salaries.length === 0 &&
+    emis.length === 0 &&
+    investments.length === 0 &&
+    recurring.length === 0 &&
+    incomeCats.length === 0 &&
+    expenseCats.length === 0
+  )
+}
+
 app.get('/api/attendance', async (req, res) => {
   await withDb(res, async (db) => {
     const user = await requireUser(req, res, db)
@@ -355,7 +463,20 @@ app.put('/api/attendance', async (req, res) => {
     const user = await requireUser(req, res, db)
     if (!user) return
 
-    await db.collection(ATTENDANCE_COLLECTION).updateOne(
+    const collection = db.collection(ATTENDANCE_COLLECTION)
+    const existing = await collection.findOne({ _id: String(user._id) })
+    const existingData = unwrapAttendanceDoc(existing)
+
+    // Never let an empty finance payload wipe a populated MongoDB finance doc
+    // (e.g. calendar tab saving before finance finished syncing).
+    if (
+      isFinanceEmpty(payload.finance) &&
+      !isFinanceEmpty(existingData.finance)
+    ) {
+      payload.finance = existingData.finance
+    }
+
+    await collection.updateOne(
       { _id: String(user._id) },
       {
         $set: { data: payload, updatedAt: new Date() },
@@ -363,7 +484,106 @@ app.put('/api/attendance', async (req, res) => {
       },
       { upsert: true },
     )
-    res.json({ ok: true })
+    res.json({ ok: true, financeSaved: !isFinanceEmpty(payload.finance) })
+  })
+})
+
+const MAX_WORK_NOTE_CHARS = 500
+const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b'
+
+app.post('/api/work-status/elaborate', async (req, res) => {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey || apiKey.includes('YOUR_') || apiKey === 'change-me') {
+    return res.status(503).json({
+      error: 'Groq is not configured',
+      hint: 'Set GROQ_API_KEY in .env (or Vercel env vars), then restart the API.',
+    })
+  }
+
+  const note =
+    typeof req.body?.note === 'string' ? req.body.note.trim() : ''
+
+  if (!note) {
+    return res.status(400).json({ error: 'Note is required' })
+  }
+  if (note.length > MAX_WORK_NOTE_CHARS) {
+    return res.status(400).json({
+      error: `Note must be at most ${MAX_WORK_NOTE_CHARS} characters`,
+    })
+  }
+
+  await withDb(res, async (db) => {
+    const user = await requireUser(req, res, db)
+    if (!user) return
+
+    const prompt = [
+      'Rewrite the short work note into a professional daily status using EXACTLY this structure and labels:',
+      '',
+      'Task: <short task title derived from the note>',
+      '',
+      'Task Status: <In Progress | Completed | Blocked>',
+      '',
+      '<4–6 plain sentences describing what was done. No markdown, bullets, or extra headings.>',
+      '',
+      'Rules:',
+      '- Output only those three parts in that order, with a blank line between them.',
+      '- Infer Task and Task Status only from the note; default Task Status to In Progress if unclear.',
+      '- Do not include a Reason, parenthetical explanation, or any text after Task Status.',
+      '- Do not invent tools, people, tickets, or outcomes not implied by the note.',
+      '- Do not mention date, office, or WFH unless the note itself says so.',
+      '',
+      `Note: ${note}`,
+    ].join('\n')
+
+    try {
+      const groqRes = await fetch(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: GROQ_MODEL,
+            temperature: 0.4,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You write professional daily work status updates in a fixed Task / Task Status / description format.',
+              },
+              { role: 'user', content: prompt },
+            ],
+          }),
+        },
+      )
+
+      const groqBody = await groqRes.json().catch(() => null)
+      if (!groqRes.ok) {
+        const detail =
+          groqBody?.error?.message ||
+          `Groq request failed (${groqRes.status})`
+        return res.status(502).json({ error: detail })
+      }
+
+      const summary = String(
+        groqBody?.choices?.[0]?.message?.content?.trim() || '',
+      )
+
+      if (!summary) {
+        return res.status(502).json({
+          error: 'Groq returned an empty summary',
+        })
+      }
+
+      res.json({ note, summary })
+    } catch (err) {
+      res.status(502).json({
+        error: 'Failed to reach Groq',
+        detail: String(err?.message || err),
+      })
+    }
   })
 })
 

@@ -1,5 +1,11 @@
-import type { DayStatus, LeavePortion } from '../types'
-import { daysInMonth, startOfToday, toDateKey } from '../lib/attendance'
+import type { DayValue, LeavePortion } from '../types'
+import {
+  daysInMonth,
+  getDayStatus,
+  hasWorkStatus,
+  startOfToday,
+  toDateKey,
+} from '../lib/attendance'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -8,9 +14,10 @@ type LeaveInfo = { note: string; portion: LeavePortion }
 type CalendarGridProps = {
   year: number
   month: number
-  days: Record<string, DayStatus>
+  days: Record<string, DayValue>
   leaveDates: Map<string, LeaveInfo>
   holidayDates: Map<string, string>
+  selectedDay?: number | null
   onDayClick: (day: number) => void
 }
 
@@ -20,6 +27,7 @@ export function CalendarGrid({
   days,
   leaveDates,
   holidayDates,
+  selectedDay = null,
   onDayClick,
 }: CalendarGridProps) {
   const total = daysInMonth(year, month)
@@ -53,8 +61,10 @@ export function CalendarGrid({
           }
 
           const dateKey = toDateKey(year, month, day)
-          const status = days[dateKey] ?? null
+          const status = getDayStatus(days, dateKey)
+          const hasNote = hasWorkStatus(days, dateKey)
           const isToday = isCurrentMonth && day === today.getDate()
+          const isSelected = selectedDay === day
           const holidayName = holidayDates.get(dateKey)
           const leave = leaveDates.get(dateKey)
 
@@ -83,6 +93,11 @@ export function CalendarGrid({
             label += `, leave ${leave.portion.toUpperCase()}`
           }
 
+          if (hasNote) {
+            statusClass += ' has-work-status'
+            label += ', has work status'
+          }
+
           const titleBits = [
             holidayName,
             leave
@@ -93,25 +108,30 @@ export function CalendarGrid({
               : status === 'wfh'
                 ? 'WFH'
                 : null,
+            hasNote ? 'Work status saved' : null,
           ].filter(Boolean)
 
           return (
             <button
               key={dateKey}
               type="button"
-              className={`day-cell ${statusClass}${isToday ? ' today' : ''}${locked ? ' locked' : ''}`}
+              className={`day-cell ${statusClass}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${locked ? ' locked' : ''}`}
               onClick={() => {
                 if (!locked) onDayClick(day)
               }}
               disabled={locked}
               title={titleBits.join(' · ') || undefined}
-              aria-label={`${dateKey}, ${label}. ${locked ? 'Managed in settings.' : 'Click to cycle office / WFH / unmarked.'}`}
+              aria-label={`${dateKey}, ${label}. ${locked ? 'Managed in settings.' : 'Click to edit status and work note.'}`}
+              aria-pressed={isSelected}
             >
               <span className="day-num">{day}</span>
               {leave && leave.portion !== 'full' && !holidayName && (
                 <span className="day-badge" aria-hidden>
                   {leave.portion.toUpperCase()}
                 </span>
+              )}
+              {hasNote && !holidayName && (
+                <span className="day-note-dot" aria-hidden />
               )}
             </button>
           )

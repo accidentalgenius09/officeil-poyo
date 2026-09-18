@@ -1,14 +1,20 @@
 import type {
+  ActivityStreak,
   AppData,
   CalendarSettings,
+  DayRecord,
   DayStatus,
+  DayValue,
+  GoalReward,
   HolidayEntry,
   LeaveEntry,
   LeavePortion,
   MonthAttendance,
   MonthStats,
+  RewardKind,
   UserProfile,
 } from '../types'
+import { emptyFinance, normalizeFinance } from './finance'
 
 const STORAGE_KEY = 'office-visit-app-data'
 const LEGACY_STORAGE_KEY = 'office-visit-attendance'
@@ -26,15 +32,23 @@ export function emptyProfile(): UserProfile {
     role: '',
     goDaily: false,
     officeDaysGoal: DEFAULT_OFFICE_GOAL,
+    weeklyDigestEmail: true,
+    holidayEveEmail: true,
   }
 }
 
 export function emptySettings(): CalendarSettings {
-  return { profile: emptyProfile(), leaves: [], holidays: [] }
+  return {
+    profile: emptyProfile(),
+    leaves: [],
+    holidays: [],
+    rewards: [],
+    activity: { lastActiveDate: null, streak: 0, behindMonths: [] },
+  }
 }
 
 export function emptyAppData(): AppData {
-  return { attendance: {}, settings: emptySettings() }
+  return { attendance: {}, settings: emptySettings(), finance: emptyFinance() }
 }
 
 export function toDateKey(year: number, month: number, day: number): string {
@@ -288,7 +302,99 @@ function normalizeProfile(raw: unknown): UserProfile {
     role: typeof source.role === 'string' ? source.role.trim() : '',
     goDaily: Boolean(source.goDaily),
     officeDaysGoal: goal,
+    weeklyDigestEmail: source.weeklyDigestEmail !== false,
+    holidayEveEmail: source.holidayEveEmail !== false,
   }
+}
+
+const REWARD_KINDS: RewardKind[] = [
+  'month_goal',
+  'perfect_year',
+  'streak_7',
+  'streak_30',
+  'streak_60',
+  'streak_100',
+  'first_office',
+  'hybrid_balancer',
+  'wfh_week',
+  'office_week',
+  'weekend_warrior',
+  'early_bird',
+  'clutch_finisher',
+  'overachiever',
+  'comeback',
+  'office_streak_5',
+  'office_streak_10',
+  'office_streak_20',
+  'no_gap_month',
+  'quarter_champion',
+  'half_year_hero',
+  'century_club',
+  'planner',
+  'holiday_curator',
+  'clean_calendar',
+  'new_year_starter',
+  'month_of_sundays',
+  'night_owl',
+]
+
+function normalizeReward(raw: unknown): GoalReward | null {
+  if (!raw || typeof raw !== 'object') return null
+  const entry = raw as Partial<GoalReward> & { monthKey?: string }
+  const kind: RewardKind =
+    entry.kind && REWARD_KINDS.includes(entry.kind) ? entry.kind : 'month_goal'
+
+  let key =
+    typeof entry.key === 'string' && entry.key
+      ? entry.key
+      : typeof entry.monthKey === 'string'
+        ? entry.monthKey
+        : ''
+
+  if (kind === 'month_goal') {
+    if (!/^\d{4}-\d{2}$/.test(key)) return null
+  } else if (kind === 'perfect_year' || kind === 'half_year_hero' || kind === 'new_year_starter') {
+    if (!/^\d{4}$/.test(key) && key !== kind) {
+      if (kind === 'perfect_year' || kind === 'half_year_hero') {
+        if (!/^\d{4}$/.test(key)) return null
+      }
+    }
+  } else if (!key) {
+    key = kind
+  }
+
+  return {
+    id: typeof entry.id === 'string' && entry.id ? entry.id : newId(),
+    kind,
+    key: key || kind,
+    monthKey: kind === 'month_goal' ? key : undefined,
+    earnedAt:
+      typeof entry.earnedAt === 'string' && entry.earnedAt
+        ? entry.earnedAt
+        : new Date().toISOString(),
+  }
+}
+
+function normalizeActivity(raw: unknown): ActivityStreak {
+  if (!raw || typeof raw !== 'object') {
+    return { lastActiveDate: null, streak: 0, behindMonths: [] }
+  }
+  const source = raw as Partial<ActivityStreak>
+  const lastActiveDate =
+    typeof source.lastActiveDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(source.lastActiveDate)
+      ? source.lastActiveDate
+      : null
+  const streak =
+    typeof source.streak === 'number' && Number.isFinite(source.streak)
+      ? Math.max(0, Math.round(source.streak))
+      : 0
+  const behindMonths = Array.isArray(source.behindMonths)
+    ? source.behindMonths.filter(
+        (v): v is string => typeof v === 'string' && /^\d{4}-\d{2}$/.test(v),
+      )
+    : []
+  return { lastActiveDate, streak, behindMonths }
 }
 
 export function normalizeSettings(raw: unknown): CalendarSettings {
@@ -302,10 +408,18 @@ export function normalizeSettings(raw: unknown): CalendarSettings {
         .map(normalizeHoliday)
         .filter((v): v is HolidayEntry => v !== null)
     : []
+  const rewards = Array.isArray(source.rewards)
+    ? source.rewards
+        .map(normalizeReward)
+        .filter((v): v is GoalReward => v !== null)
+        .sort((a, b) => b.earnedAt.localeCompare(a.earnedAt))
+    : []
   return {
     profile: normalizeProfile(source.profile),
     leaves,
     holidays,
+    rewards,
+    activity: normalizeActivity(source.activity),
   }
 }
 
@@ -314,7 +428,11 @@ export function normalizeAppData(raw: unknown): AppData {
 
   const record = raw as Record<string, unknown>
   if (looksLikeLegacyAttendance(record)) {
-    return { attendance: record, settings: emptySettings() }
+    return {
+      attendance: record,
+      settings: emptySettings(),
+      finance: emptyFinance(),
+    }
   }
 
   const attendance =
@@ -324,6 +442,7 @@ export function normalizeAppData(raw: unknown): AppData {
   return {
     attendance,
     settings: normalizeSettings(record.settings),
+    finance: normalizeFinance(record.finance),
   }
 }
 
@@ -362,6 +481,71 @@ export function getMonthAttendance(
   return all[key] ?? emptyMonth(year, month)
 }
 
+export function isDayRecord(value: unknown): value is DayRecord {
+  return Boolean(value && typeof value === 'object' && 'status' in (value as object))
+}
+
+/** Resolve attendance status from a legacy string or DayRecord. */
+export function getDayStatus(
+  days: Record<string, DayValue>,
+  key: string,
+): DayStatus {
+  const value = days[key]
+  if (value == null) return null
+  if (value === 'office' || value === 'wfh') return value
+  if (isDayRecord(value)) {
+    return value.status === 'office' || value.status === 'wfh' ? value.status : null
+  }
+  return null
+}
+
+export function getDayRecord(
+  days: Record<string, DayValue>,
+  key: string,
+): DayRecord {
+  const value = days[key]
+  if (value == null) return { status: null }
+  if (value === 'office' || value === 'wfh') return { status: value }
+  if (isDayRecord(value)) {
+    const status =
+      value.status === 'office' || value.status === 'wfh' ? value.status : null
+    const note = typeof value.note === 'string' ? value.note.trim() : ''
+    const summary =
+      typeof value.summary === 'string' ? value.summary.trim() : ''
+    return {
+      status,
+      ...(note ? { note } : {}),
+      ...(summary ? { summary } : {}),
+    }
+  }
+  return { status: null }
+}
+
+export function hasWorkStatus(
+  days: Record<string, DayValue>,
+  key: string,
+): boolean {
+  const record = getDayRecord(days, key)
+  return Boolean(record.note || record.summary)
+}
+
+/** Compact storage: plain status when no note/summary; omit when empty. */
+export function dayValueFromRecord(
+  record: DayRecord,
+): DayValue | undefined {
+  const status =
+    record.status === 'office' || record.status === 'wfh' ? record.status : null
+  const note = record.note?.trim() || undefined
+  const summary = record.summary?.trim() || undefined
+  if (!status && !note && !summary) return undefined
+  if (status && !note && !summary) return status
+  return {
+    status,
+    ...(note ? { note } : {}),
+    ...(summary ? { summary } : {}),
+  }
+}
+
 /** Unmarked does not count; only explicit office status. */
 export function isInOffice(status: DayStatus | undefined): boolean {
   return status === 'office'
@@ -377,6 +561,85 @@ export function cycleStatus(current: DayStatus): DayStatus {
 export function isWeekday(date: Date): boolean {
   const day = date.getDay()
   return day !== 0 && day !== 6
+}
+
+/** Weekday that is not a holiday or full-day leave. */
+export function isWorkingDay(
+  date: Date,
+  settings: CalendarSettings = emptySettings(),
+): boolean {
+  if (!isWeekday(date)) return false
+  const key = toDateKey(date.getFullYear(), date.getMonth(), date.getDate())
+  const holidays = holidayNameByDate(
+    settings,
+    date.getFullYear(),
+    date.getMonth(),
+  )
+  if (holidays.has(key)) return false
+  const leave = leaveCoverageByDate(settings).get(key)
+  if (leave?.portion === 'full') return false
+  return true
+}
+
+/**
+ * Most recent working day strictly before `from`
+ * (skips Sat/Sun, holidays, and full leave).
+ */
+export function findPreviousWorkingDay(
+  settings: CalendarSettings = emptySettings(),
+  from: Date = startOfToday(),
+): Date | null {
+  const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate())
+  cursor.setDate(cursor.getDate() - 1)
+
+  for (let i = 0; i < 31; i++) {
+    if (isWorkingDay(cursor, settings)) {
+      return new Date(
+        cursor.getFullYear(),
+        cursor.getMonth(),
+        cursor.getDate(),
+      )
+    }
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return null
+}
+
+/**
+ * If the previous working day is unmarked, set it to WFH.
+ * Returns updated app data, or null when nothing changed.
+ */
+export function autoMarkPreviousWorkingDayWfh(
+  data: AppData,
+  today: Date = startOfToday(),
+): AppData | null {
+  const prev = findPreviousWorkingDay(data.settings, today)
+  if (!prev) return null
+
+  const y = prev.getFullYear()
+  const m = prev.getMonth()
+  const d = prev.getDate()
+  const dateKey = toDateKey(y, m, d)
+  const monthKey = monthStorageKey(y, m)
+  const monthAtt = getMonthAttendance(data.attendance, y, m)
+  const current = getDayStatus(monthAtt.days, dateKey)
+
+  if (current === 'office' || current === 'wfh') return null
+
+  return {
+    ...data,
+    attendance: {
+      ...data.attendance,
+      [monthKey]: {
+        year: y,
+        month: m,
+        days: {
+          ...monthAtt.days,
+          [dateKey]: 'wfh',
+        },
+      },
+    },
+  }
 }
 
 /** Weekdays from today through month end, excluding full leave and holidays. */
@@ -457,7 +720,7 @@ export function countWeekOfficeDays(
       d.getMonth(),
     )
     const key = toDateKey(d.getFullYear(), d.getMonth(), d.getDate())
-    if (isInOffice(monthAtt.days[key])) count += 1
+    if (isInOffice(getDayStatus(monthAtt.days, key))) count += 1
   }
   return count
 }
@@ -489,7 +752,7 @@ export function computeOfficeStreak(
     }
 
     const monthAtt = getMonthAttendance(attendanceMap, y, m)
-    if (isInOffice(monthAtt.days[key])) {
+    if (isInOffice(getDayStatus(monthAtt.days, key))) {
       streak += 1
       cursor.setDate(cursor.getDate() - 1)
       continue
@@ -533,8 +796,9 @@ export function computeStats(
   let daysWfh = 0
   for (let day = 1; day <= totalDaysInMonth; day++) {
     const key = toDateKey(year, month, day)
-    if (days[key] === 'office') daysInOffice += 1
-    else if (days[key] === 'wfh') daysWfh += 1
+    const status = getDayStatus(days, key)
+    if (status === 'office') daysInOffice += 1
+    else if (status === 'wfh') daysWfh += 1
   }
 
   const daysLeftToGoal = Math.max(0, goal - daysInOffice)

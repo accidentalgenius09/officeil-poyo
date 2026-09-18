@@ -1,6 +1,8 @@
-import type { AppData, DayStatus } from '../types'
+import type { AppData, DayStatus, FinanceData } from '../types'
 import {
   daysInMonth,
+  getDayRecord,
+  getDayStatus,
   getMonthAttendance,
   holidayNameByDate,
   isInOffice,
@@ -9,6 +11,7 @@ import {
   monthStorageKey,
   toDateKey,
 } from './attendance'
+import { monthPrefix, summarizeMonth } from './finance'
 
 function statusLabel(status: DayStatus | undefined): string {
   if (status === 'office') return 'Office'
@@ -43,14 +46,23 @@ export function exportMonthCsv(
   const total = daysInMonth(year, month)
 
   const rows = [
-    ['Date', 'Weekday', 'Status', 'Office', 'Note'].join(','),
+    [
+      'Date',
+      'Weekday',
+      'Status',
+      'Office',
+      'Note',
+      'Work note',
+      'Work summary',
+    ].join(','),
   ]
 
   for (let day = 1; day <= total; day++) {
     const dateKey = toDateKey(year, month, day)
     const date = new Date(year, month, day)
     const weekday = date.toLocaleDateString(undefined, { weekday: 'short' })
-    const status = attendance.days[dateKey]
+    const status = getDayStatus(attendance.days, dateKey)
+    const record = getDayRecord(attendance.days, dateKey)
     const holiday = holidays.get(dateKey)
     const leave = leaves.get(dateKey)
     const note = holiday
@@ -66,6 +78,8 @@ export function exportMonthCsv(
         escapeCsv(statusLabel(status)),
         isInOffice(status) ? '1' : '0',
         escapeCsv(note),
+        escapeCsv(record.note ?? ''),
+        escapeCsv(record.summary ?? ''),
       ].join(','),
     )
   }
@@ -84,7 +98,7 @@ export function exportYearCsv(data: AppData, year: number): void {
     let office = 0
     for (let day = 1; day <= total; day++) {
       const key = toDateKey(year, month, day)
-      if (isInOffice(attendance.days[key])) office += 1
+      if (isInOffice(getDayStatus(attendance.days, key))) office += 1
     }
     rows.push(
       [escapeCsv(monthLabel(year, month)), String(office)].join(','),
@@ -92,4 +106,51 @@ export function exportYearCsv(data: AppData, year: number): void {
   }
 
   downloadBlob(`office-visits-${year}.csv`, rows.join('\n'))
+}
+
+/** Transaction CSV for one finance month, plus income/expense/balance summary. */
+export function exportFinanceMonthCsv(
+  finance: FinanceData,
+  year: number,
+  month: number,
+): void {
+  const prefix = monthPrefix(year, month)
+  const summary = summarizeMonth(finance.transactions, year, month)
+  const txns = finance.transactions
+    .filter((t) => t.date.startsWith(prefix))
+    .slice()
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt),
+    )
+
+  const rows = [
+    ['Metric', 'Amount'].join(','),
+    ['Income', String(summary.income)].join(','),
+    ['Expenses', String(summary.expense)].join(','),
+    ['Balance', String(summary.balance)].join(','),
+    ['Transaction count', String(summary.count)].join(','),
+    '',
+    ['Date', 'Kind', 'Category', 'Amount', 'Note', 'Auto'].join(','),
+  ]
+
+  for (const txn of txns) {
+    rows.push(
+      [
+        txn.date,
+        txn.kind,
+        escapeCsv(txn.category),
+        String(txn.amount),
+        escapeCsv(txn.note),
+        txn.sourceKey ? 'yes' : 'no',
+      ].join(','),
+    )
+  }
+
+  if (txns.length === 0) {
+    rows.push(['(no transactions this month)', '', '', '', '', ''].join(','))
+  }
+
+  const label = monthStorageKey(year, month)
+  downloadBlob(`finance-${label}.csv`, `\uFEFF${rows.join('\n')}`)
 }

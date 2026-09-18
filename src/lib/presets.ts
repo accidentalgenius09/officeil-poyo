@@ -5,7 +5,6 @@ export type PolicyPresetId =
   | 'daily'
   | 'three_per_week'
   | 'two_per_week'
-  | 'tue_thu'
   | 'custom_12'
 
 export type PolicyPreset = {
@@ -33,24 +32,6 @@ export const POLICY_PRESETS: PolicyPreset[] = [
     label: '2 days / week',
     blurb: 'About 8 office days per month',
     apply: () => ({ goDaily: false, officeDaysGoal: 8 }),
-  },
-  {
-    id: 'tue_thu',
-    label: 'Tue–Thu focus',
-    blurb: 'Roughly 13 mid-week office days',
-    apply: (year, month) => {
-      // Count Tue–Thu weekdays in the month as a suggested goal
-      const total = new Date(year, month + 1, 0).getDate()
-      let count = 0
-      for (let day = 1; day <= total; day++) {
-        const dow = new Date(year, month, day).getDay()
-        if (dow >= 2 && dow <= 4) count += 1
-      }
-      return {
-        goDaily: false,
-        officeDaysGoal: Math.max(1, Math.min(31, count)),
-      }
-    },
   },
   {
     id: 'custom_12',
