@@ -48,6 +48,7 @@
 | **Sync** | Per-user Atlas documents + local cache fallback while signed in |
 | **Theme** | Light / dark celestial toggle (saved; follows system on first visit) |
 | **Brand mark** | Calendar header typewriter cycles **Officeil Poyo?** → **Went to office?** → **Still on pace?** → **WFH today?** |
+| **Tip jar** | Calendar footer **Buy me a coffee** opens a modal with UPI QR (`public/upi-qr.png`) and **UPI id: surjith2000@yescred** |
 | **Toasts** | Auth, sync, validation, badge unlocks, and reminders via [react-hot-toast](https://react-hot-toast.com/) (top-right; deduped so each alert shows once) |
 | **Reminders** | Once per calendar day: **unmarked today** or **on the edge**. **Mondays** get a week check-in toast + themed Brevo email at 8:00 India time. **The evening before a holiday** (6:00 India time) you also get a themed email naming tomorrow’s holiday(s). Optional browser/OS notifications. Toggle emails under **Settings → Account** (**Email Monday check-in**, **Email holiday reminder**). Guests can enter any address and **Send sample check-in email** (rate-limited) |
 | **Live Demo** | Auth screen **Live demo** creates an isolated temporary guest with seeded calendar, rewards, and finance. A top banner on Calendar/Finance notes that data is erased on leave; **Sign in** wipes the guest and returns to auth. Tab close uses best-effort cleanup; holiday-eve cron also purges guests older than 24h |
@@ -201,6 +202,7 @@ API examples: `/api/attendance`, `/api/auth/login`, `/api/auth/register`, `/api/
 9. **Rewards** (trophy icon) — monthly goals, update streaks (7/30/60/100 days), perfect year; history with dates; unlock toasts appear once per badge  
 10. **Finance** (money icon, above rewards) — `/finance` with **Overview** (add/edit transactions, optional recurring expense, month-selectable pie chart + **Export CSV** for that month; transaction lists show 10 at a time with **See more**; a simple scroll-to-top control appears after you scroll to All transactions), **Income** / **Expenses** lists, and **Setup** (add/edit salaries with allowances, EMIs, investment SIPs, recurring expenses, custom categories).  
 11. **Games** (controller icon) — Sudoku, Memory Match, or 2048 (Gold/Aurora from this year’s monthly badges)  
+12. **Buy me a coffee** — footer link under the copyright; opens a modal with the UPI QR (`public/upi-qr.png`) and **UPI id: surjith2000@yescred** (close via X, backdrop, or Escape)  
 
 Hit monthly goals for badges. Log attendance daily for logger streaks (7→100). Build office streaks (5/10/20). Hit **all 12 months** for perfect year — plus hybrid, week, planning, and milestone badges. Console themes use **this year’s monthly goal badges** and reset each year.
 
@@ -229,6 +231,7 @@ src/
   components/
     AuthScreen.tsx       # Sign in / register / Live demo (+ password show/hide)
     DemoBanner.tsx       # Guest demo mode banner + Sign in link
+    TipJarModal.tsx      # Buy me a coffee UPI QR modal
     common/
       AppLoader.tsx      # Shared themed loader (session + section loads)
     CalendarGrid.tsx     # Month grid (office / WFH / leave / holiday tear-crack / note dot)
@@ -256,8 +259,11 @@ src/
     upcoming.ts          # Next holiday urgency / leave / goal-safety strip helpers
     analytics.ts         # GA4 custom events
     sudoku.ts            # Sudoku helpers
-  App.tsx                # Calendar app (requires sign-in or guest demo)
+  App.tsx                # Calendar app (requires sign-in or guest demo; tip jar modal)
   main.tsx               # Router + react-hot-toast Toaster (top-right)
+public/
+  favicon.svg
+  upi-qr.png             # UPI QR shown in Buy me a coffee modal
 api/
   index.js               # Express + MongoDB + auth + guest + demo email + Groq + cron routes
   guestDemo.js           # Seeded AppData builder for Live Demo guests
@@ -287,6 +293,7 @@ Fired via `src/lib/analytics.ts` (`trackEvent`). **Never** sends profile name or
 
 | Event | When |
 | --- | --- |
+| `open_tip_jar` | Footer Buy me a coffee opened |
 | `login` / `register` / `logout` | Auth actions |
 | `live_demo_start` | Live demo guest session started |
 | `live_demo_exit_sign_in` | Guest left demo via banner Sign in |
@@ -336,4 +343,4 @@ Fired via `src/lib/analytics.ts` (`trackEvent`). **Never** sends profile name or
 
 Copyright © Surjith K. All Rights Reserved.
 
-(Year in the app footer updates automatically.)
+(Year in the app footer updates automatically. **Buy me a coffee** opens the UPI tip modal.)

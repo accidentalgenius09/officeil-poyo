@@ -1451,6 +1451,95 @@
   color: var(--brand-deep);
 }
 
+button.tip-jar-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+}
+
+.tip-jar-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.tip-jar-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: var(--overlay);
+  cursor: pointer;
+}
+
+.tip-jar-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(320px, calc(100vw - 2rem));
+  padding: 1.15rem 1.15rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  transform: translate(-50%, -50%);
+  animation: settings-rise 0.22s ease-out both;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.tip-jar-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tip-jar-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.tip-jar-close {
+  border: 0;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.tip-jar-close:hover {
+  color: var(--ink);
+  background: var(--panel-tint);
+}
+
+.tip-jar-qr {
+  width: min(240px, 70vw);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #000;
+  image-rendering: pixelated;
+}
+
+.tip-jar-upi {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  word-break: break-all;
+}
+
 .settings-fab {
   position: fixed;
   right: 1.25rem;

@@ -37,6 +37,7 @@ import { BrandTypewriter } from "./components/BrandTypewriter";
 import { CalendarGrid } from "./components/CalendarGrid";
 import { DayStatusPanel } from "./components/DayStatusPanel";
 import { DemoBanner } from "./components/DemoBanner";
+import { TipJarModal } from "./components/TipJarModal";
 import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
 import { GamesConsole } from "./components/games/GamesConsole";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -76,6 +77,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [gamesOpen, setGamesOpen] = useState(false);
   const [rewardsOpen, setRewardsOpen] = useState(false);
+  const [tipJarOpen, setTipJarOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -777,9 +779,21 @@ function App() {
           >
             Surjith K
           </a>
-          . All Rights Reserved.
+          . All Rights Reserved.{" "}
+          <button
+            type="button"
+            className="copyright-link tip-jar-link"
+            onClick={() => {
+              trackEvent("open_tip_jar");
+              setTipJarOpen(true);
+            }}
+          >
+            Buy me a coffee
+          </button>
         </p>
       </main>
+
+      <TipJarModal open={tipJarOpen} onClose={() => setTipJarOpen(false)} />
 
       <FinanceFab />
 
