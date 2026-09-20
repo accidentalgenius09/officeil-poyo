@@ -456,6 +456,8 @@
   border-radius: 2px 2px 0 0;
   background: color-mix(in srgb, var(--holiday-ink) 35%, white);
   transform-origin: top center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
   pointer-events: none;
 }
 
@@ -464,7 +466,7 @@
 }
 
 .upcoming-holiday--eve .upcoming-tearoff-page {
-  animation: upcoming-tearoff-lift 2.2s ease-in-out infinite;
+  animation: upcoming-tearoff-lift 2.6s cubic-bezier(0.4, 0.1, 0.2, 1) infinite;
 }
 
 .upcoming-holiday--today .upcoming-icon {
@@ -472,7 +474,7 @@
 }
 
 .upcoming-holiday--today .upcoming-tearoff-page {
-  animation: upcoming-tearoff-lift 1.4s ease-in-out infinite;
+  animation: upcoming-tearoff-lift 1.8s cubic-bezier(0.4, 0.1, 0.2, 1) infinite;
 }
 
 @keyframes upcoming-rocket-bob {
@@ -488,12 +490,20 @@
 @keyframes upcoming-tearoff-lift {
   0%,
   100% {
-    transform: rotateX(0deg) translateY(0);
-    opacity: 0.85;
+    transform: perspective(80px) rotateX(0deg) translateY(0);
+    opacity: 0.8;
   }
-  45% {
-    transform: rotateX(-48deg) translateY(-2px);
+  35% {
+    transform: perspective(80px) rotateX(-36deg) translateY(-1px);
     opacity: 1;
+  }
+  55% {
+    transform: perspective(80px) rotateX(-42deg) translateY(-2px);
+    opacity: 1;
+  }
+  78% {
+    transform: perspective(80px) rotateX(-14deg) translateY(-1px);
+    opacity: 0.9;
   }
 }
 
@@ -1068,6 +1078,8 @@
     0 4px 10px color-mix(in srgb, var(--ink) 18%, transparent),
     inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
   transform-origin: 50% 0%;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
   display: grid;
   place-items: center;
   overflow: visible;
@@ -1152,20 +1164,20 @@
 
 .day-cell.holiday-countdown--today .day-holiday-crack-sheet {
   height: 72%;
-  animation: day-holiday-tear-today 2.8s cubic-bezier(0.4, 0.05, 0.2, 1) infinite;
+  animation: day-holiday-tear-today 3.4s cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
 }
 
 .day-cell.holiday-countdown--today .day-holiday-crack-shadow {
-  animation: day-holiday-tear-shadow-strong 2.8s ease-in-out infinite;
+  animation: day-holiday-tear-shadow-strong 3.4s ease-in-out infinite;
 }
 
 .day-cell.holiday-countdown--today .day-holiday-crack-rift {
   opacity: 0.85;
-  animation: day-holiday-rift-flash 2.8s ease-in-out infinite;
+  animation: day-holiday-rift-flash 3.4s ease-in-out infinite;
 }
 
 .day-cell.holiday-countdown--today .day-num--under-tear {
-  animation: day-holiday-reveal-num 2.8s ease-in-out infinite;
+  animation: day-holiday-reveal-num 3.4s ease-in-out infinite;
 }
 
 .day-cell.holiday-countdown--near .day-holiday-mark {
@@ -1173,72 +1185,85 @@
 }
 
 .day-cell.holiday-countdown--eve .day-holiday-crack-sheet {
-  animation: day-holiday-tear-eve 2.4s ease-in-out infinite;
+  animation: day-holiday-tear-eve 2.8s cubic-bezier(0.4, 0.1, 0.2, 1) infinite;
 }
 
 .day-cell.holiday-countdown--eve .day-holiday-crack-shadow {
-  animation: day-holiday-tear-shadow 2.4s ease-in-out infinite;
+  animation: day-holiday-tear-shadow 2.8s ease-in-out infinite;
 }
 
 @keyframes day-holiday-tear-eve {
   0%,
   100% {
-    transform: perspective(140px) rotateX(0deg) translateY(0);
+    transform: perspective(160px) rotateX(0deg) translate3d(0, 0, 0);
   }
-  45% {
-    transform: perspective(140px) rotateX(-28deg) translateY(-2px);
+  40% {
+    transform: perspective(160px) rotateX(-22deg) translate3d(0, -1px, 0);
+  }
+  55% {
+    transform: perspective(160px) rotateX(-26deg) translate3d(0, -2px, 0);
+  }
+  72% {
+    transform: perspective(160px) rotateX(-10deg) translate3d(0, -1px, 0);
   }
 }
 
-/* Full tear-off: peel, rip free, fly away, then reset. */
+/* Full tear-off: peel, drift free, fade, then soft reset. */
 @keyframes day-holiday-tear-today {
   0% {
-    transform: perspective(180px) rotateX(0deg) translateY(0) translateX(0)
-      rotateZ(0deg);
-    opacity: 1;
-    filter: none;
-  }
-  18% {
-    transform: perspective(180px) rotateX(-42deg) translateY(-2px) rotateZ(2deg);
+    transform: perspective(200px) rotateX(0deg) translate3d(0, 0, 0) rotateZ(0deg)
+      scale(1);
     opacity: 1;
   }
-  32% {
-    transform: perspective(200px) rotateX(-88deg) translateY(-6px) rotateZ(-3deg);
+  12% {
+    transform: perspective(200px) rotateX(-18deg) translate3d(0, -1px, 0)
+      rotateZ(1deg) scale(1);
     opacity: 1;
   }
-  48% {
-    transform: perspective(220px) rotateX(-125deg) translateY(-28px)
-      translateX(8px) rotateZ(8deg);
-    opacity: 0.85;
+  28% {
+    transform: perspective(200px) rotateX(-55deg) translate3d(2px, -4px, 0)
+      rotateZ(-1deg) scale(0.99);
+    opacity: 1;
   }
-  68% {
-    transform: perspective(240px) rotateX(-155deg) translateY(-72px)
-      translateX(22px) rotateZ(18deg) scale(0.92);
+  42% {
+    transform: perspective(200px) rotateX(-98deg) translate3d(6px, -14px, 0)
+      rotateZ(4deg) scale(0.97);
+    opacity: 0.95;
+  }
+  58% {
+    transform: perspective(200px) rotateX(-132deg) translate3d(14px, -40px, 0)
+      rotateZ(10deg) scale(0.94);
+    opacity: 0.55;
+  }
+  72% {
+    transform: perspective(200px) rotateX(-148deg) translate3d(22px, -68px, 0)
+      rotateZ(14deg) scale(0.9);
     opacity: 0;
-    filter: blur(0.4px);
   }
-  69%,
-  82% {
-    transform: perspective(180px) rotateX(0deg) translateY(0) translateX(0)
-      rotateZ(0deg);
+  73% {
+    transform: perspective(200px) rotateX(0deg) translate3d(0, 0, 0) rotateZ(0deg)
+      scale(1);
     opacity: 0;
-    filter: none;
+  }
+  86% {
+    transform: perspective(200px) rotateX(0deg) translate3d(0, 0, 0) rotateZ(0deg)
+      scale(1);
+    opacity: 0;
   }
   100% {
-    transform: perspective(180px) rotateX(0deg) translateY(0) translateX(0)
-      rotateZ(0deg);
+    transform: perspective(200px) rotateX(0deg) translate3d(0, 0, 0) rotateZ(0deg)
+      scale(1);
     opacity: 1;
-    filter: none;
   }
 }
 
 @keyframes day-holiday-reveal-num {
   0%,
-  30% {
+  28% {
     opacity: 0.18;
   }
-  48%,
-  82% {
+  45%,
+  86% {
     opacity: 1;
   }
   100% {
@@ -1248,44 +1273,49 @@
 
 @keyframes day-holiday-rift-flash {
   0%,
-  30% {
-    opacity: 0.45;
+  28% {
+    opacity: 0.4;
   }
-  48%,
-  75% {
-    opacity: 1;
+  45%,
+  78% {
+    opacity: 0.95;
   }
   100% {
-    opacity: 0.5;
+    opacity: 0.45;
   }
 }
 
 @keyframes day-holiday-tear-shadow {
   0%,
   100% {
-    opacity: 0.25;
-    transform: scaleX(0.85);
+    opacity: 0.22;
+    transform: scaleX(0.88);
   }
-  45% {
-    opacity: 0.65;
+  40%,
+  55% {
+    opacity: 0.6;
     transform: scaleX(1);
   }
 }
 
 @keyframes day-holiday-tear-shadow-strong {
   0%,
-  18% {
-    opacity: 0.3;
+  12% {
+    opacity: 0.28;
     transform: scaleX(0.9);
   }
-  32% {
-    opacity: 0.9;
-    transform: scaleX(1.1);
+  28% {
+    opacity: 0.75;
+    transform: scaleX(1.05);
   }
-  55%,
+  42% {
+    opacity: 0.9;
+    transform: scaleX(1.12);
+  }
+  58%,
   100% {
     opacity: 0;
-    transform: scaleX(1.2);
+    transform: scaleX(1.18);
   }
 }
 
@@ -3679,6 +3709,106 @@
   color: var(--ink-soft);
   font-size: 0.95rem;
   line-height: 1.45;
+}
+
+.auth-live-demo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 650;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.auth-live-demo:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.auth-live-demo:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.auth-live-demo-note {
+  margin: 0.45rem 0 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.demo-banner {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface-solid));
+}
+
+.demo-banner-copy {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.demo-banner-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--brand-deep);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.settings-demo-mail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0.85rem 0 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.settings-demo-mail label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.settings-demo-mail input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--input-bg);
+}
+
+.settings-demo-mail input:focus {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: 1px;
+  border-color: var(--brand);
 }
 
 .auth-tabs {

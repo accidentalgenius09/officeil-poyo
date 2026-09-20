@@ -19,7 +19,10 @@ export function getStoredUser(): AuthUser | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as AuthUser
     if (!parsed?.id || !parsed?.email) return null
-    return parsed
+    return {
+      ...parsed,
+      isGuest: Boolean(parsed.isGuest),
+    }
   } catch {
     return null
   }
@@ -105,13 +108,93 @@ export async function loginAccount(input: {
   return data
 }
 
+export async function startGuestDemo(): Promise<{
+  token: string
+  user: AuthUser
+}> {
+  const res = await fetch(`${API_BASE}/auth/guest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  if (!res.ok) throw new Error(await parseError(res))
+  const data = await res.json()
+  const user: AuthUser = {
+    id: String(data.user?.id ?? ''),
+    email: String(data.user?.email ?? ''),
+    name: String(data.user?.name ?? 'Demo Guest'),
+    isGuest: true,
+  }
+  storeSession(String(data.token), user)
+  return { token: String(data.token), user }
+}
+
+/** Erase guest account on the server. Safe to call when not a guest. */
+export async function endGuestDemo(): Promise<void> {
+  const user = getStoredUser()
+  const token = getStoredToken()
+  if (!user?.isGuest || !token) return
+  try {
+    await fetch(`${API_BASE}/auth/guest`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+      keepalive: true,
+    })
+  } catch {
+    /* best-effort erase */
+  }
+}
+
+/** Best-effort wipe when the tab closes (beacon / keepalive). */
+export function beaconEndGuestDemo(): void {
+  const user = getStoredUser()
+  const token = getStoredToken()
+  if (!user?.isGuest || !token) return
+  const url = `${API_BASE}/auth/guest`
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      // sendBeacon cannot set Authorization; use keepalive fetch instead
+    }
+    void fetch(url, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      keepalive: true,
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function sendDemoSampleEmail(input: {
+  email: string
+  kind?: 'weekly' | 'holiday-eve'
+  name?: string
+}): Promise<void> {
+  const res = await fetch(`${API_BASE}/demo/send-sample-email`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      email: input.email,
+      kind: input.kind ?? 'weekly',
+      name: input.name,
+    }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) clearSession()
+    throw new Error(await parseError(res))
+  }
+}
+
 export async function fetchMe(): Promise<AuthUser> {
   const res = await fetch(`${API_BASE}/auth/me`, {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error(await parseError(res))
   const data = await res.json()
-  return data.user as AuthUser
+  const user = data.user as AuthUser
+  return { ...user, isGuest: Boolean(user.isGuest) }
 }
 
 export async function fetchAppData(): Promise<AppData> {

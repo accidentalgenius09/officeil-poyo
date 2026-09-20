@@ -9,7 +9,8 @@ import {
   timingSafeEqual,
 } from 'crypto'
 import { MongoClient, ObjectId } from 'mongodb'
-import { runWeeklyDigest, runHolidayEveReminders } from './weeklyDigest.js'
+import { runWeeklyDigest, runHolidayEveReminders, sendSampleDemoEmail } from './weeklyDigest.js'
+import { buildGuestDemoData } from './guestDemo.js'
 
 // Windows/router DNS often fails Node's SRV lookup for mongodb+srv://
 dns.setServers(['8.8.8.8', '1.1.1.1'])
@@ -213,6 +214,7 @@ function publicUser(user) {
     id: String(user._id),
     email: user.email,
     name: user.name || '',
+    isGuest: Boolean(user.isGuest),
   }
 }
 
@@ -301,6 +303,19 @@ app.get('/api/cron/holiday-eve', async (req, res) => {
   }
 
   await withDb(res, async (db) => {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const staleGuests = await db
+      .collection(USERS_COLLECTION)
+      .find({ isGuest: true, createdAt: { $lt: cutoff } })
+      .project({ _id: 1 })
+      .toArray()
+    for (const guest of staleGuests) {
+      await db.collection(USERS_COLLECTION).deleteOne({ _id: guest._id })
+      await db.collection(ATTENDANCE_COLLECTION).deleteOne({
+        _id: String(guest._id),
+      })
+    }
+
     const asOf =
       typeof req.query.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.asOf)
         ? req.query.asOf
@@ -312,7 +327,7 @@ app.get('/api/cron/holiday-eve', async (req, res) => {
     })
     if (result.error) return res.status(503).json(result)
     if (result.failed?.length) return res.status(502).json(result)
-    res.json(result)
+    res.json({ ...result, guestsPurged: staleGuests.length })
   })
 })
 
@@ -402,6 +417,114 @@ app.post('/api/auth/login', async (req, res) => {
 
     const token = signToken(String(user._id))
     res.json({ token, user: publicUser(user) })
+  })
+})
+
+app.post('/api/auth/guest', async (req, res) => {
+  await withDb(res, async (db) => {
+    const users = db.collection(USERS_COLLECTION)
+    const attendance = db.collection(ATTENDANCE_COLLECTION)
+    const guestId = randomBytes(8).toString('hex')
+    const email = `guest-${guestId}@demo.local`
+    const password = randomBytes(24).toString('hex')
+    const { salt, hash } = hashPassword(password)
+
+    const insert = await users.insertOne({
+      email,
+      name: 'Demo Guest',
+      salt,
+      passwordHash: hash,
+      isGuest: true,
+      createdAt: new Date(),
+    })
+
+    const userId = insert.insertedId
+    const starter = buildGuestDemoData()
+    starter.settings.profile = {
+      ...starter.settings.profile,
+      email: '',
+      name: 'Demo Guest',
+    }
+
+    await attendance.updateOne(
+      { _id: String(userId) },
+      { $set: { data: starter, updatedAt: new Date() } },
+      { upsert: true },
+    )
+
+    const token = signToken(String(userId))
+    res.status(201).json({
+      token,
+      user: publicUser({
+        _id: userId,
+        email,
+        name: 'Demo Guest',
+        isGuest: true,
+      }),
+    })
+  })
+})
+
+app.delete('/api/auth/guest', async (req, res) => {
+  await withDb(res, async (db) => {
+    const user = await requireUser(req, res, db)
+    if (!user) return
+    if (!user.isGuest) {
+      return res.status(403).json({ error: 'Not a guest session' })
+    }
+
+    await db.collection(USERS_COLLECTION).deleteOne({ _id: user._id })
+    await db.collection(ATTENDANCE_COLLECTION).deleteOne({
+      _id: String(user._id),
+    })
+    res.json({ ok: true })
+  })
+})
+
+/** In-memory rate limit for demo sample emails (per user id). */
+const demoMailHits = new Map()
+
+function demoMailAllowed(userId) {
+  const now = Date.now()
+  const windowMs = 60 * 60 * 1000
+  const maxHits = 3
+  const entry = demoMailHits.get(userId) || { start: now, count: 0 }
+  if (now - entry.start > windowMs) {
+    demoMailHits.set(userId, { start: now, count: 1 })
+    return true
+  }
+  if (entry.count >= maxHits) return false
+  entry.count += 1
+  demoMailHits.set(userId, entry)
+  return true
+}
+
+app.post('/api/demo/send-sample-email', async (req, res) => {
+  await withDb(res, async (db) => {
+    const user = await requireUser(req, res, db)
+    if (!user) return
+
+    if (!demoMailAllowed(String(user._id))) {
+      return res.status(429).json({
+        error: 'Too many sample emails. Try again in an hour.',
+      })
+    }
+
+    const email = normalizeEmail(req.body?.email)
+    const kind =
+      req.body?.kind === 'holiday-eve' ? 'holiday-eve' : 'weekly'
+    const name =
+      String(req.body?.name || user.name || 'Demo Guest').trim().slice(0, 80) ||
+      'Demo Guest'
+
+    try {
+      const messageId = await sendSampleDemoEmail({ to: email, name, kind })
+      res.json({ ok: true, messageId, kind })
+    } catch (err) {
+      res.status(502).json({
+        error: err instanceof Error ? err.message : 'Could not send sample email',
+      })
+    }
   })
 })
 

@@ -33,7 +33,7 @@
 
 | Area | What you get |
 | --- | --- |
-| **Auth** | Email / password register & sign-in; per-user MongoDB data; password show/hide (eye icon) |
+| **Auth** | Email / password register & sign-in; **Live demo** guest session with seeded data; per-user MongoDB data; password show/hide (eye icon) |
 | **Calendar** | Click a day to open the day panel: set **office / WFH / clear**, optional work note; previous unmarked working day auto-fills as **WFH**; holiday cells animate a countdown (flag / rocket / paper tear) |
 | **Work status** | Short daily note (**Save note only**) or **Groq** write-up only (**Elaborate & save**), stored with that day in MongoDB |
 | **Goals** | Monthly target, remaining working days, WFH count |
@@ -49,7 +49,8 @@
 | **Theme** | Light / dark celestial toggle (saved; follows system on first visit) |
 | **Brand mark** | Calendar header typewriter cycles **Officeil Poyo?** → **Went to office?** → **Still on pace?** → **WFH today?** |
 | **Toasts** | Auth, sync, validation, badge unlocks, and reminders via [react-hot-toast](https://react-hot-toast.com/) (top-right; deduped so each alert shows once) |
-| **Reminders** | Once per calendar day: **unmarked today** or **on the edge**. **Mondays** get a week check-in toast + themed Brevo email at 8:00 India time. **The evening before a holiday** (6:00 India time) you also get a themed email naming tomorrow’s holiday(s). Optional browser/OS notifications. Toggle emails under **Settings → Account** (**Email Monday check-in**, **Email holiday reminder**) |
+| **Reminders** | Once per calendar day: **unmarked today** or **on the edge**. **Mondays** get a week check-in toast + themed Brevo email at 8:00 India time. **The evening before a holiday** (6:00 India time) you also get a themed email naming tomorrow’s holiday(s). Optional browser/OS notifications. Toggle emails under **Settings → Account** (**Email Monday check-in**, **Email holiday reminder**). Guests can enter any address and **Send sample check-in email** (rate-limited) |
+| **Live Demo** | Auth screen **Live demo** creates an isolated temporary guest with seeded calendar, rewards, and finance. A top banner on Calendar/Finance notes that data is erased on leave; **Sign in** wipes the guest and returns to auth. Tab close uses best-effort cleanup; holiday-eve cron also purges guests older than 24h |
 | **Games** | Sudoku · Memory Match · 2048 |
 | **Analytics** | GA4 visitors + custom in-app events (no profile PII) |
 
@@ -183,22 +184,23 @@ Without `?force=1`, the Monday job no-ops unless it is Monday in `DIGEST_TIMEZON
 3. In Atlas → Network Access, allow `0.0.0.0/0`
 4. Deploy (or push to `main`). Crons in `vercel.json`: Monday digest (`30 2 * * 1`) and holiday-eve (`30 12 * * *`, 18:00 India time). Accounts can turn each email off in Settings.
 
-API examples: `/api/attendance`, `/api/auth/login`, `/api/auth/register`, `/api/cron/weekly-digest`, `/api/cron/holiday-eve`.
+API examples: `/api/attendance`, `/api/auth/login`, `/api/auth/register`, `/api/auth/guest`, `/api/demo/send-sample-email`, `/api/cron/weekly-digest`, `/api/cron/holiday-eve`.
 
 ---
 
 ## Usage
 
-1. **Register / sign in** — email + password; use the eye icon to show or hide the password  
+1. **Register / sign in / Live demo** — email + password, or tap **Live demo** for a temporary guest with seeded calendar, rewards, and finance (erased when you leave). Use the eye icon to show or hide the password  
 2. **Theme** — celestial toggle (top-right); preference is remembered. The calendar brand mark typewrites and cycles **Officeil Poyo?** / **Went to office?** / **Still on pace?** / **WFH today?**  
-3. **Settings** (gear, bottom-right) — profile, policy presets, leave, holidays, CSV export, **Email Monday check-in**, **Email holiday reminder**, **Enable browser notifications**, sign out  
-4. **Calendar** — click a day to open the day panel: set **Office / WFH / Clear**, optionally write a short work note. **Elaborate & save** calls Groq and stores **only** the elaborated summary (not the short draft). **Save note only** stores your raw note. Days with a saved note or summary show a small dot. Holiday cells animate by stage (soft flag glow 8+ days, rocket launch this week, paper tear on eve/today). If the previous working day (skipping weekends, holidays, and full leave) was left unmarked, it is auto-marked **WFH**. Breaking an office streak shows a toast with **Undo**  
-5. **Summary cards** — **Office days** (count + WFH + this week), **Goal progress** (left to goal / met), and **Pace & streak** (flame + consecutive office streak + pace note)  
-6. **Upcoming** — under the cards: next holiday with countdown (rocket / tear-off as the day nears), next leave (or current leave), and whether this month’s goal is safe after N more office days (uses today’s month even if you browse another month)  
-7. **Reminders** — after load, if today is an unmarked working day or you are on the edge of your monthly goal, you get a toast once that day. On Monday you also get a week check-in toast once that week. With notifications enabled, those alerts can appear as browser/OS notifications. When Brevo is configured: Monday 8:00 India time week-check email; **6:00 India time the day before any holiday** on your calendar (holiday name + date). Toggle under **Settings → Account**  
-8. **Rewards** (trophy icon) — monthly goals, update streaks (7/30/60/100 days), perfect year; history with dates; unlock toasts appear once per badge  
-9. **Finance** (money icon, above rewards) — `/finance` with **Overview** (add/edit transactions, optional recurring expense, month-selectable pie chart + **Export CSV** for that month; transaction lists show 10 at a time with **See more**; a simple scroll-to-top control appears after you scroll to All transactions), **Income** / **Expenses** lists, and **Setup** (add/edit salaries with allowances, EMIs, investment SIPs, recurring expenses, custom categories).  
-10. **Games** (controller icon) — Sudoku, Memory Match, or 2048 (Gold/Aurora from this year’s monthly badges)  
+3. **Settings** (gear, bottom-right) — profile, policy presets, leave, holidays, CSV export, **Email Monday check-in**, **Email holiday reminder**, **Enable browser notifications**, sign out. Guests also get **Send sample check-in email** (enter any inbox; rate-limited via Brevo)  
+4. **Demo banner** — while in Live demo, Calendar and Finance show a top banner; **Sign in** erases the guest and returns to auth  
+5. **Calendar** — click a day to open the day panel: set **Office / WFH / Clear**, optionally write a short work note. **Elaborate & save** calls Groq and stores **only** the elaborated summary (not the short draft). **Save note only** stores your raw note. Days with a saved note or summary show a small dot. Holiday cells animate by stage (soft flag glow 8+ days, rocket launch this week, paper tear on eve/today). If the previous working day (skipping weekends, holidays, and full leave) was left unmarked, it is auto-marked **WFH**. Breaking an office streak shows a toast with **Undo**  
+6. **Summary cards** — **Office days** (count + WFH + this week), **Goal progress** (left to goal / met), and **Pace & streak** (flame + consecutive office streak + pace note)  
+7. **Upcoming** — under the cards: next holiday with countdown (rocket / tear-off as the day nears), next leave (or current leave), and whether this month’s goal is safe after N more office days (uses today’s month even if you browse another month)  
+8. **Reminders** — after load, if today is an unmarked working day or you are on the edge of your monthly goal, you get a toast once that day. On Monday you also get a week check-in toast once that week. With notifications enabled, those alerts can appear as browser/OS notifications. When Brevo is configured: Monday 8:00 India time week-check email; **6:00 India time the day before any holiday** on your calendar (holiday name + date). Toggle under **Settings → Account**  
+9. **Rewards** (trophy icon) — monthly goals, update streaks (7/30/60/100 days), perfect year; history with dates; unlock toasts appear once per badge  
+10. **Finance** (money icon, above rewards) — `/finance` with **Overview** (add/edit transactions, optional recurring expense, month-selectable pie chart + **Export CSV** for that month; transaction lists show 10 at a time with **See more**; a simple scroll-to-top control appears after you scroll to All transactions), **Income** / **Expenses** lists, and **Setup** (add/edit salaries with allowances, EMIs, investment SIPs, recurring expenses, custom categories).  
+11. **Games** (controller icon) — Sudoku, Memory Match, or 2048 (Gold/Aurora from this year’s monthly badges)  
 
 Hit monthly goals for badges. Log attendance daily for logger streaks (7→100). Build office streaks (5/10/20). Hit **all 12 months** for perfect year — plus hybrid, week, planning, and milestone badges. Console themes use **this year’s monthly goal badges** and reset each year.
 
@@ -225,7 +227,8 @@ Sudoku progress, theme preference, reminder “already shown” flags (daily toa
 ```text
 src/
   components/
-    AuthScreen.tsx       # Sign in / register (+ password show/hide)
+    AuthScreen.tsx       # Sign in / register / Live demo (+ password show/hide)
+    DemoBanner.tsx       # Guest demo mode banner + Sign in link
     common/
       AppLoader.tsx      # Shared themed loader (session + section loads)
     CalendarGrid.tsx     # Month grid (office / WFH / leave / holiday tear-crack / note dot)
@@ -234,7 +237,7 @@ src/
     SummaryCards.tsx     # Office days, goal progress, pace & streak flame
     UpcomingStrip.tsx    # Next holiday countdown / leave / goal safety under cards
     BrandTypewriter.tsx  # Animated calendar brand mark (type / backspace cycle)
-    SettingsPanel.tsx    # Profile, presets, leave, holidays, CSV, email toggles, notifications, sign out
+    SettingsPanel.tsx    # Profile, presets, leave, holidays, CSV, email toggles, sample demo mail, notifications, sign out
     RewardsPanel.tsx     # Trophy FAB + badge history modal
     FinanceFab.tsx       # Money FAB → /finance
     ThemeToggle.tsx      # Light / dark celestial switch
@@ -242,7 +245,7 @@ src/
       FinancePage.tsx    # Financial segments (overview / income / expenses)
     games/               # Game console, Sudoku, Memory Match, 2048
   lib/
-    api.ts               # Auth session + attendance + work-status API client
+    api.ts               # Auth session + guest demo + attendance + work-status API client
     attendance.ts        # Calendar math, stats, DayRecord helpers, normalize/cache
     finance.ts           # Finance transactions + month summaries
     holidays.ts          # India holiday pack import
@@ -253,11 +256,12 @@ src/
     upcoming.ts          # Next holiday urgency / leave / goal-safety strip helpers
     analytics.ts         # GA4 custom events
     sudoku.ts            # Sudoku helpers
-  App.tsx                # Calendar app (requires sign-in)
+  App.tsx                # Calendar app (requires sign-in or guest demo)
   main.tsx               # Router + react-hot-toast Toaster (top-right)
 api/
-  index.js               # Express + MongoDB + auth + Groq elaborate + cron routes
-  weeklyDigest.js        # Monday digest + holiday-eve themed Brevo emails
+  index.js               # Express + MongoDB + auth + guest + demo email + Groq + cron routes
+  guestDemo.js           # Seeded AppData builder for Live Demo guests
+  weeklyDigest.js        # Monday digest + holiday-eve + sample demo Brevo emails
 vercel.json              # Rewrites + Monday digest + holiday-eve crons
 ```
 ---
@@ -284,6 +288,9 @@ Fired via `src/lib/analytics.ts` (`trackEvent`). **Never** sends profile name or
 | Event | When |
 | --- | --- |
 | `login` / `register` / `logout` | Auth actions |
+| `live_demo_start` | Live demo guest session started |
+| `live_demo_exit_sign_in` | Guest left demo via banner Sign in |
+| `demo_sample_email` | Sample check-in email sent from guest Settings |
 | `toggle_attendance` | Calendar day status changes |
 | `auto_mark_wfh` | Previous unmarked working day auto-set to WFH |
 | `change_month` | Prev / next / today |

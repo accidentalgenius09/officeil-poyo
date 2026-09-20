@@ -19,6 +19,8 @@ import {
 import {
   clearSession,
   elaborateWorkStatus,
+  endGuestDemo,
+  beaconEndGuestDemo,
   fetchAppData,
   fetchMe,
   getStoredToken,
@@ -34,6 +36,7 @@ import { UpcomingStrip } from "./components/UpcomingStrip";
 import { BrandTypewriter } from "./components/BrandTypewriter";
 import { CalendarGrid } from "./components/CalendarGrid";
 import { DayStatusPanel } from "./components/DayStatusPanel";
+import { DemoBanner } from "./components/DemoBanner";
 import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
 import { GamesConsole } from "./components/games/GamesConsole";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -653,13 +656,29 @@ function App() {
   }
 
   function handleSignOut() {
-    clearSession();
-    setUser(null);
-    setSettingsOpen(false);
-    setGamesOpen(false);
-    setRewardsOpen(false);
-    setSelectedDay(null);
+    void endGuestDemo().finally(() => {
+      clearSession();
+      setUser(null);
+      setSettingsOpen(false);
+      setGamesOpen(false);
+      setRewardsOpen(false);
+      setSelectedDay(null);
+    });
   }
+
+  function leaveDemoForSignIn() {
+    trackEvent('live_demo_exit_sign_in')
+    handleSignOut()
+  }
+
+  useEffect(() => {
+    if (!user?.isGuest) return
+    function onPageHide() {
+      beaconEndGuestDemo()
+    }
+    window.addEventListener('pagehide', onPageHide)
+    return () => window.removeEventListener('pagehide', onPageHide)
+  }, [user?.isGuest])
 
   if (authChecking) {
     return (
@@ -693,6 +712,9 @@ function App() {
       <div className="app-bg" aria-hidden="true" />
       <ThemeToggle />
       <main className="shell">
+        {user.isGuest ? (
+          <DemoBanner onSignIn={leaveDemoForSignIn} />
+        ) : null}
         <header className="brand">
           <BrandTypewriter />
           <p className="brand-sub">{brandSub}</p>
@@ -859,6 +881,7 @@ function App() {
         viewYear={year}
         viewMonth={month}
         userEmail={user.email}
+        isGuest={Boolean(user.isGuest)}
         onClose={() => {
           trackEvent("close_settings");
           setSettingsOpen(false);
