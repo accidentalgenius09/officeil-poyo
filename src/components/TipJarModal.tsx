@@ -1,5 +1,8 @@
-import { useEffect, useId } from 'react'
-import { X } from '@phosphor-icons/react'
+import { useEffect, useId, useState } from 'react'
+import { Copy, Check, X } from '@phosphor-icons/react'
+import { toast } from 'react-hot-toast'
+
+const UPI_ID = 'surjith2000@yescred'
 
 type TipJarModalProps = {
   open: boolean
@@ -8,6 +11,7 @@ type TipJarModalProps = {
 
 export function TipJarModal({ open, onClose }: TipJarModalProps) {
   const titleId = useId()
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -18,7 +22,22 @@ export function TipJarModal({ open, onClose }: TipJarModalProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
+  useEffect(() => {
+    if (!open) setCopied(false)
+  }, [open])
+
   if (!open) return null
+
+  async function copyUpi() {
+    try {
+      await navigator.clipboard.writeText(UPI_ID)
+      setCopied(true)
+      toast.success('UPI id copied')
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Could not copy UPI id')
+    }
+  }
 
   return (
     <div className="tip-jar-root">
@@ -50,11 +69,27 @@ export function TipJarModal({ open, onClose }: TipJarModalProps) {
         <img
           className="tip-jar-qr"
           src="/upi-qr.png"
-          alt="UPI QR code to tip Surjith K"
-          width={240}
-          height={240}
+          alt="UPI QR code — scan with any UPI app"
+          width={512}
+          height={512}
+          decoding="async"
         />
-        <p className="tip-jar-upi">or UPI id: surjith2000@yescred</p>
+        <p className="tip-jar-upi">
+          or UPI id:{' '}
+          <button
+            type="button"
+            className="tip-jar-upi-copy"
+            onClick={() => void copyUpi()}
+            title="Copy UPI id"
+          >
+            {UPI_ID}
+            {copied ? (
+              <Check size={14} weight="bold" aria-hidden />
+            ) : (
+              <Copy size={14} weight="bold" aria-hidden />
+            )}
+          </button>
+        </p>
       </div>
     </div>
   )
