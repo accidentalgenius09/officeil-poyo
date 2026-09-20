@@ -1456,33 +1456,39 @@ button.tip-jar-link {
   padding: 0;
   background: none;
   font: inherit;
+  font-weight: 700;
 }
 
 .tip-jar-root {
   position: fixed;
   inset: 0;
   z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  box-sizing: border-box;
 }
 
 .tip-jar-backdrop {
   position: absolute;
   inset: 0;
+  z-index: 0;
   border: 0;
   background: var(--overlay);
   cursor: pointer;
 }
 
 .tip-jar-panel {
-  position: absolute;
-  left: 50%;
-  top: 50%;
+  position: relative;
+  z-index: 1;
   width: min(320px, calc(100vw - 2rem));
+  max-height: min(90dvh, 560px);
+  overflow: auto;
   padding: 1.15rem 1.15rem 1.25rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-solid);
   box-shadow: var(--shadow);
-  transform: translate(-50%, -50%);
   animation: settings-rise 0.22s ease-out both;
   box-sizing: border-box;
   display: flex;
@@ -1527,8 +1533,10 @@ button.tip-jar-link {
   height: auto;
   aspect-ratio: 1;
   border-radius: 8px;
-  background: #000;
-  image-rendering: pixelated;
+  padding: 0.5rem;
+  box-sizing: border-box;
+  background: #fff;
+  image-rendering: auto;
 }
 
 .tip-jar-upi {
@@ -1537,7 +1545,26 @@ button.tip-jar-link {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--ink);
+}
+
+.tip-jar-upi-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  padding: 0.15rem 0.25rem;
+  margin: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--brand-deep);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
   word-break: break-all;
+}
+
+.tip-jar-upi-copy:hover {
+  background: var(--panel-tint);
 }
 
 .settings-fab {
