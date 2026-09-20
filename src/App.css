@@ -442,6 +442,83 @@
   background: color-mix(in srgb, var(--brand) 12%, transparent);
 }
 
+.upcoming-tearoff {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upcoming-tearoff-page {
+  position: absolute;
+  inset: 2px 3px auto;
+  height: 7px;
+  border-radius: 2px 2px 0 0;
+  background: color-mix(in srgb, var(--holiday-ink) 35%, white);
+  transform-origin: top center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+.upcoming-holiday--near .upcoming-icon {
+  animation: upcoming-rocket-bob 1.6s ease-in-out infinite;
+}
+
+.upcoming-holiday--eve .upcoming-tearoff-page {
+  animation: upcoming-tearoff-lift 2.6s cubic-bezier(0.4, 0.1, 0.2, 1) infinite;
+}
+
+.upcoming-holiday--today .upcoming-icon {
+  animation: upcoming-today-pulse 1.4s ease-in-out infinite;
+}
+
+.upcoming-holiday--today .upcoming-tearoff-page {
+  animation: upcoming-tearoff-lift 1.8s cubic-bezier(0.4, 0.1, 0.2, 1) infinite;
+}
+
+@keyframes upcoming-rocket-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes upcoming-tearoff-lift {
+  0%,
+  100% {
+    transform: perspective(80px) rotateX(0deg) translateY(0);
+    opacity: 0.8;
+  }
+  35% {
+    transform: perspective(80px) rotateX(-36deg) translateY(-1px);
+    opacity: 1;
+  }
+  55% {
+    transform: perspective(80px) rotateX(-42deg) translateY(-2px);
+    opacity: 1;
+  }
+  78% {
+    transform: perspective(80px) rotateX(-14deg) translateY(-1px);
+    opacity: 0.9;
+  }
+}
+
+@keyframes upcoming-today-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: none;
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 40%, transparent);
+  }
+}
+
 .upcoming-copy {
   display: flex;
   flex-direction: column;
@@ -551,6 +628,75 @@
 
 .card-value-sm .card-emphasis {
   font-size: clamp(1.55rem, 3.2vw, 1.9rem);
+}
+
+.card-streak-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.streak-flame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, #c45c26 70%, var(--brand));
+  transform-origin: center bottom;
+}
+
+.streak-flame--out {
+  color: var(--ink-soft);
+  opacity: 0.45;
+}
+
+.streak-flame--small {
+  animation: streak-flicker 1.8s ease-in-out infinite;
+}
+
+.streak-flame--medium {
+  color: #d4632a;
+  animation: streak-flicker 1.35s ease-in-out infinite;
+}
+
+.streak-flame--large {
+  color: #e85d04;
+  animation: streak-flicker 1.05s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, #e85d04 45%, transparent));
+}
+
+@keyframes streak-flicker {
+  0%,
+  100% {
+    transform: scale(1) rotate(-2deg);
+    opacity: 0.92;
+  }
+  40% {
+    transform: scale(1.08) rotate(2deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.96) rotate(-1deg);
+    opacity: 0.88;
+  }
+}
+
+.streak-break-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.streak-undo-btn {
+  border: 0;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--on-brand);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
 }
 
 .pace-warn {
@@ -703,6 +849,483 @@
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--holiday-ink);
+  position: relative;
+  overflow: visible;
+}
+
+.day-num--under-tear {
+  opacity: 0.22;
+  filter: blur(0.2px);
+}
+
+.day-holiday-mark {
+  position: absolute;
+  top: 0.28rem;
+  right: 0.28rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--holiday-ink);
+  line-height: 0;
+  z-index: 2;
+}
+
+.day-holiday-calm,
+.day-holiday-near {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.day-holiday-calm-glow {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent) 35%, transparent),
+    transparent 70%
+  );
+  animation: day-holiday-calm-glow 3.2s ease-in-out infinite;
+}
+
+.day-holiday-calm-flag {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.28rem;
+  color: var(--holiday-ink);
+  transform-origin: 30% 90%;
+  animation: day-holiday-calm-wave 2.6s ease-in-out infinite;
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--ink) 15%, transparent));
+}
+
+.day-cell.holiday-countdown--calm {
+  animation: day-holiday-calm-breathe 3.2s ease-in-out infinite;
+}
+
+.day-holiday-near-trail {
+  position: absolute;
+  left: 42%;
+  bottom: 18%;
+  width: 3px;
+  height: 42%;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 55%, transparent)
+  );
+  opacity: 0;
+  transform-origin: bottom center;
+  animation: day-holiday-near-trail 2.1s ease-in-out infinite;
+}
+
+.day-holiday-near-rocket {
+  position: absolute;
+  left: 50%;
+  bottom: 16%;
+  color: var(--holiday-ink);
+  transform: translateX(-50%);
+  animation: day-holiday-near-launch 2.1s ease-in-out infinite;
+  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--ink) 18%, transparent));
+}
+
+.day-holiday-near-spark {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 80%, #fff);
+  opacity: 0;
+}
+
+.day-holiday-near-spark--a {
+  left: 38%;
+  bottom: 28%;
+  animation: day-holiday-near-spark 2.1s ease-in-out infinite;
+}
+
+.day-holiday-near-spark--b {
+  left: 58%;
+  bottom: 24%;
+  animation: day-holiday-near-spark 2.1s ease-in-out 0.15s infinite;
+}
+
+.day-cell.holiday-countdown--near {
+  animation: day-holiday-near-ring 2.1s ease-in-out infinite;
+}
+
+@keyframes day-holiday-calm-breathe {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+}
+
+@keyframes day-holiday-calm-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes day-holiday-calm-wave {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  40% {
+    transform: rotate(10deg);
+  }
+  70% {
+    transform: rotate(-4deg);
+  }
+}
+
+@keyframes day-holiday-near-launch {
+  0% {
+    transform: translate(-50%, 6px) rotate(12deg);
+    opacity: 0.35;
+  }
+  25% {
+    opacity: 1;
+  }
+  55% {
+    transform: translate(-50%, -118%) rotate(-6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -150%) rotate(-10deg);
+    opacity: 0;
+  }
+}
+
+@keyframes day-holiday-near-trail {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.2);
+  }
+  30% {
+    opacity: 0.8;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(1.3) translateY(-40%);
+  }
+}
+
+@keyframes day-holiday-near-spark {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.4);
+  }
+}
+
+@keyframes day-holiday-near-ring {
+  0%,
+  100% {
+    box-shadow: none;
+  }
+  40% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+}
+
+.day-holiday-crack {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.day-holiday-crack-sheet {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: -1px;
+  height: 58%;
+  border-radius: 13px 13px 0 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-soft) 35%, #fff8ef) 0%,
+    color-mix(in srgb, var(--accent-soft) 55%, #f3e6d4) 100%
+  );
+  color: color-mix(in srgb, var(--accent-soft) 40%, #f3e6d4);
+  box-shadow:
+    0 4px 10px color-mix(in srgb, var(--ink) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
+  transform-origin: 50% 0%;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  display: grid;
+  place-items: center;
+  overflow: visible;
+}
+
+.day-holiday-crack-num {
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--holiday-ink);
+  line-height: 1;
+  transform: translateY(0.1rem);
+}
+
+.day-holiday-crack-edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  width: 100%;
+  height: 12px;
+  color: color-mix(in srgb, var(--accent-soft) 55%, #f3e6d4);
+  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--ink) 12%, transparent));
+}
+
+.day-holiday-crack-shadow {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 48%;
+  height: 18%;
+  border-radius: 40%;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--ink) 28%, transparent),
+    transparent 72%
+  );
+  opacity: 0.55;
+  z-index: 1;
+}
+
+.day-holiday-crack-rift {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 52%;
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ink) 35%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+  opacity: 0.45;
+  z-index: 1;
+  clip-path: polygon(
+    0% 40%,
+    8% 100%,
+    16% 20%,
+    24% 90%,
+    32% 10%,
+    40% 95%,
+    48% 30%,
+    56% 85%,
+    64% 15%,
+    72% 100%,
+    80% 25%,
+    88% 80%,
+    96% 35%,
+    100% 70%,
+    100% 55%,
+    0% 55%
+  );
+}
+
+.day-cell.holiday-countdown--today {
+  overflow: visible;
+  z-index: 4;
+}
+
+.day-cell.holiday-countdown--today .day-holiday-crack {
+  overflow: visible;
+}
+
+.day-cell.holiday-countdown--today .day-holiday-crack-sheet {
+  height: 72%;
+  animation: day-holiday-tear-today 3.4s cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
+}
+
+.day-cell.holiday-countdown--today .day-holiday-crack-shadow {
+  animation: day-holiday-tear-shadow-strong 3.4s ease-in-out infinite;
+}
+
+.day-cell.holiday-countdown--today .day-holiday-crack-rift {
+  opacity: 0.85;
+  animation: day-holiday-rift-flash 3.4s ease-in-out infinite;
+}
+
+.day-cell.holiday-countdown--today .day-num--under-tear {
+  animation: day-holiday-reveal-num 3.4s ease-in-out infinite;
+}
+
+.day-cell.holiday-countdown--near .day-holiday-mark {
+  animation: upcoming-rocket-bob 1.6s ease-in-out infinite;
+}
+
+.day-cell.holiday-countdown--eve .day-holiday-crack-sheet {
+  animation: day-holiday-tear-eve 2.8s cubic-bezier(0.4, 0.1, 0.2, 1) infinite;
+}
+
+.day-cell.holiday-countdown--eve .day-holiday-crack-shadow {
+  animation: day-holiday-tear-shadow 2.8s ease-in-out infinite;
+}
+
+@keyframes day-holiday-tear-eve {
+  0%,
+  100% {
+    transform: perspective(160px) rotateX(0deg) translate3d(0, 0, 0);
+  }
+  40% {
+    transform: perspective(160px) rotateX(-22deg) translate3d(0, -1px, 0);
+  }
+  55% {
+    transform: perspective(160px) rotateX(-26deg) translate3d(0, -2px, 0);
+  }
+  72% {
+    transform: perspective(160px) rotateX(-10deg) translate3d(0, -1px, 0);
+  }
+}
+
+/* Full tear-off: peel, drift free, fade, then soft reset. */
+@keyframes day-holiday-tear-today {
+  0% {
+    transform: perspective(200px) rotateX(0deg) translate3d(0, 0, 0) rotateZ(0deg)
+      scale(1);
+    opacity: 1;
+  }
+  12% {
+    transform: perspective(200px) rotateX(-18deg) translate3d(0, -1px, 0)
+      rotateZ(1deg) scale(1);
+    opacity: 1;
+  }
+  28% {
+    transform: perspective(200px) rotateX(-55deg) translate3d(2px, -4px, 0)
+      rotateZ(-1deg) scale(0.99);
+    opacity: 1;
+  }
+  42% {
+    transform: perspective(200px) rotateX(-98deg) translate3d(6px, -14px, 0)
+      rotateZ(4deg) scale(0.97);
+    opacity: 0.95;
+  }
+  58% {
+    transform: perspective(200px) rotateX(-132deg) translate3d(14px, -40px, 0)
+      rotateZ(10deg) scale(0.94);
+    opacity: 0.55;
+  }
+  72% {
+    transform: perspective(200px) rotateX(-148deg) translate3d(22px, -68px, 0)
+      rotateZ(14deg) scale(0.9);
+    opacity: 0;
+  }
+  73% {
+    transform: perspective(200px) rotateX(0deg) translate3d(0, 0, 0) rotateZ(0deg)
+      scale(1);
+    opacity: 0;
+  }
+  86% {
+    transform: perspective(200px) rotateX(0deg) translate3d(0, 0, 0) rotateZ(0deg)
+      scale(1);
+    opacity: 0;
+  }
+  100% {
+    transform: perspective(200px) rotateX(0deg) translate3d(0, 0, 0) rotateZ(0deg)
+      scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes day-holiday-reveal-num {
+  0%,
+  28% {
+    opacity: 0.18;
+  }
+  45%,
+  86% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.22;
+  }
+}
+
+@keyframes day-holiday-rift-flash {
+  0%,
+  28% {
+    opacity: 0.4;
+  }
+  45%,
+  78% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes day-holiday-tear-shadow {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: scaleX(0.88);
+  }
+  40%,
+  55% {
+    opacity: 0.6;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes day-holiday-tear-shadow-strong {
+  0%,
+  12% {
+    opacity: 0.28;
+    transform: scaleX(0.9);
+  }
+  28% {
+    opacity: 0.75;
+    transform: scaleX(1.05);
+  }
+  42% {
+    opacity: 0.9;
+    transform: scaleX(1.12);
+  }
+  58%,
+  100% {
+    opacity: 0;
+    transform: scaleX(1.18);
+  }
+}
+
+[data-theme='dark'] .day-holiday-crack-sheet {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-soft) 55%, #2a322c) 0%,
+    color-mix(in srgb, var(--accent-soft) 70%, #1c2420) 100%
+  );
+  color: color-mix(in srgb, var(--accent-soft) 70%, #1c2420);
 }
 
 .day-cell.locked {
@@ -826,6 +1449,95 @@
 
 .copyright-link:hover {
   color: var(--brand-deep);
+}
+
+button.tip-jar-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+}
+
+.tip-jar-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.tip-jar-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: var(--overlay);
+  cursor: pointer;
+}
+
+.tip-jar-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(320px, calc(100vw - 2rem));
+  padding: 1.15rem 1.15rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  transform: translate(-50%, -50%);
+  animation: settings-rise 0.22s ease-out both;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.tip-jar-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tip-jar-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.tip-jar-close {
+  border: 0;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.tip-jar-close:hover {
+  color: var(--ink);
+  background: var(--panel-tint);
+}
+
+.tip-jar-qr {
+  width: min(240px, 70vw);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #000;
+  image-rendering: pixelated;
+}
+
+.tip-jar-upi {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  word-break: break-all;
 }
 
 .settings-fab {
@@ -3088,6 +3800,106 @@
   line-height: 1.45;
 }
 
+.auth-live-demo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 650;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.auth-live-demo:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.auth-live-demo:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.auth-live-demo-note {
+  margin: 0.45rem 0 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.demo-banner {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface-solid));
+}
+
+.demo-banner-copy {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.demo-banner-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--brand-deep);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.settings-demo-mail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0.85rem 0 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.settings-demo-mail label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.settings-demo-mail input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--input-bg);
+}
+
+.settings-demo-mail input:focus {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: 1px;
+  border-color: var(--brand);
+}
+
 .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3319,7 +4131,26 @@
   .theme-moon,
   .theme-sky,
   .theme-stars i,
-  .theme-cloud {
+  .theme-cloud,
+  .upcoming-holiday--near .upcoming-icon,
+  .upcoming-holiday--eve .upcoming-tearoff-page,
+  .upcoming-holiday--today .upcoming-icon,
+  .upcoming-holiday--today .upcoming-tearoff-page,
+  .day-cell.holiday-countdown--calm,
+  .day-cell.holiday-countdown--calm .day-holiday-calm-glow,
+  .day-cell.holiday-countdown--calm .day-holiday-calm-flag,
+  .day-cell.holiday-countdown--near,
+  .day-cell.holiday-countdown--near .day-holiday-near-rocket,
+  .day-cell.holiday-countdown--near .day-holiday-near-trail,
+  .day-cell.holiday-countdown--near .day-holiday-near-spark,
+  .day-cell.holiday-countdown--near .day-holiday-mark,
+  .day-cell.holiday-countdown--eve .day-holiday-crack-sheet,
+  .day-cell.holiday-countdown--eve .day-holiday-crack-shadow,
+  .day-cell.holiday-countdown--today .day-holiday-crack-sheet,
+  .day-cell.holiday-countdown--today .day-holiday-crack-shadow,
+  .day-cell.holiday-countdown--today .day-holiday-crack-rift,
+  .day-cell.holiday-countdown--today .day-num--under-tear,
+  .streak-flame {
     animation: none !important;
     transition: none !important;
   }

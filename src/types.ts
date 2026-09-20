@@ -224,4 +224,6 @@ export type AuthUser = {
   id: string
   email: string
   name: string
+  /** Temporary Live Demo session — data erased on leave. */
+  isGuest?: boolean
 }

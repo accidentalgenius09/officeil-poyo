@@ -6,6 +6,12 @@ import {
   startOfToday,
   toDateKey,
 } from '../lib/attendance'
+import { daysUntil, holidayUrgency } from '../lib/upcoming'
+import {
+  HolidayCalmMotion,
+  HolidayNearMotion,
+  HolidayTearCrack,
+} from './HolidayTearCrack'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -67,6 +73,11 @@ export function CalendarGrid({
           const isSelected = selectedDay === day
           const holidayName = holidayDates.get(dateKey)
           const leave = leaveDates.get(dateKey)
+          const until = holidayName ? daysUntil(dateKey, today) : null
+          const urgency =
+            holidayName && until != null && until >= 0
+              ? holidayUrgency(until)
+              : null
 
           let statusClass = 'unmarked'
           let label = 'unmarked'
@@ -76,6 +87,7 @@ export function CalendarGrid({
             statusClass = 'holiday'
             label = `holiday: ${holidayName}`
             locked = true
+            if (urgency) statusClass += ` holiday-countdown holiday-countdown--${urgency}`
           } else if (leave?.portion === 'full') {
             statusClass = 'leave'
             label = leave.note ? `leave: ${leave.note}` : 'on leave'
@@ -100,6 +112,13 @@ export function CalendarGrid({
 
           const titleBits = [
             holidayName,
+            urgency === 'near'
+              ? 'Countdown: this week'
+              : urgency === 'eve'
+                ? 'Countdown: holiday eve'
+                : urgency === 'today'
+                  ? 'Countdown: holiday today'
+                  : null,
             leave
               ? `${leave.note || 'Leave'} (${leave.portion.toUpperCase()})`
               : null,
@@ -124,7 +143,23 @@ export function CalendarGrid({
               aria-label={`${dateKey}, ${label}. ${locked ? 'Managed in settings.' : 'Click to edit status and work note.'}`}
               aria-pressed={isSelected}
             >
-              <span className="day-num">{day}</span>
+              <span
+                className={`day-num${
+                  urgency === 'eve' || urgency === 'today'
+                    ? ' day-num--under-tear'
+                    : ''
+                }`}
+              >
+                {day}
+              </span>
+              {urgency === 'eve' || urgency === 'today' ? (
+                <HolidayTearCrack
+                  day={day}
+                  intensity={urgency === 'today' ? 'today' : 'eve'}
+                />
+              ) : null}
+              {urgency === 'calm' ? <HolidayCalmMotion /> : null}
+              {urgency === 'near' ? <HolidayNearMotion /> : null}
               {leave && leave.portion !== 'full' && !holidayName && (
                 <span className="day-badge" aria-hidden>
                   {leave.portion.toUpperCase()}

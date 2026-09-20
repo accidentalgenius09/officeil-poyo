@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AppData, AuthUser, DayStatus, GoalReward } from "./types";
+import type { AppData, AuthUser, DayStatus, DayValue, GoalReward } from "./types";
 import {
   cacheAppData,
+  computeOfficeStreak,
   computeStats,
   dayValueFromRecord,
   getDayRecord,
@@ -18,6 +19,8 @@ import {
 import {
   clearSession,
   elaborateWorkStatus,
+  endGuestDemo,
+  beaconEndGuestDemo,
   fetchAppData,
   fetchMe,
   getStoredToken,
@@ -33,6 +36,8 @@ import { UpcomingStrip } from "./components/UpcomingStrip";
 import { BrandTypewriter } from "./components/BrandTypewriter";
 import { CalendarGrid } from "./components/CalendarGrid";
 import { DayStatusPanel } from "./components/DayStatusPanel";
+import { DemoBanner } from "./components/DemoBanner";
+import { TipJarModal } from "./components/TipJarModal";
 import { SettingsFab, SettingsPanel } from "./components/SettingsPanel";
 import { GamesConsole } from "./components/games/GamesConsole";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -72,6 +77,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [gamesOpen, setGamesOpen] = useState(false);
   const [rewardsOpen, setRewardsOpen] = useState(false);
+  const [tipJarOpen, setTipJarOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     "loading",
@@ -440,6 +446,14 @@ function App() {
       month: monthStorageKey(year, month),
     });
 
+    const prevStreak = computeOfficeStreak(
+      appData.attendance,
+      appData.settings,
+    );
+    const currentBefore = getMonthAttendance(appData.attendance, year, month);
+    const previousEncoded: DayValue | undefined =
+      currentBefore.days[dateKey];
+
     setAppData((prev) => {
       const current = getMonthAttendance(prev.attendance, year, month);
       const existing = getDayRecord(current.days, dateKey);
@@ -518,6 +532,71 @@ function App() {
         });
       }
 
+      const nextStreak = computeOfficeStreak(
+        draft.attendance,
+        draft.settings,
+      );
+
+      if (prevStreak > 0 && nextStreak < prevStreak) {
+        const undoYear = year;
+        const undoMonth = month;
+        const undoKey = key;
+        const undoDateKey = dateKey;
+        const restoreValue = previousEncoded;
+        queueMicrotask(() => {
+          toast(
+            (t) => (
+              <span className="streak-break-toast">
+                <span>Streak snuffed — {prevStreak}-day flame is out</span>
+                <button
+                  type="button"
+                  className="streak-undo-btn"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    setAppData((latest) => {
+                      const monthAtt = getMonthAttendance(
+                        latest.attendance,
+                        undoYear,
+                        undoMonth,
+                      );
+                      const days = { ...monthAtt.days };
+                      if (restoreValue === undefined) {
+                        delete days[undoDateKey];
+                      } else {
+                        days[undoDateKey] = restoreValue;
+                      }
+                      return {
+                        ...latest,
+                        attendance: {
+                          ...latest.attendance,
+                          [undoKey]: {
+                            year: undoYear,
+                            month: undoMonth,
+                            days,
+                          },
+                        },
+                      };
+                    });
+                    trackEvent("streak_break_undo", { streak: prevStreak });
+                    toast.success("Streak restored");
+                  }}
+                >
+                  Undo
+                </button>
+              </span>
+            ),
+            {
+              id: "streak-break",
+              duration: 8000,
+            },
+          );
+          trackEvent("streak_break", {
+            from: prevStreak,
+            to: nextStreak,
+          });
+        });
+      }
+
       return {
         ...draft,
         settings: {
@@ -579,13 +658,29 @@ function App() {
   }
 
   function handleSignOut() {
-    clearSession();
-    setUser(null);
-    setSettingsOpen(false);
-    setGamesOpen(false);
-    setRewardsOpen(false);
-    setSelectedDay(null);
+    void endGuestDemo().finally(() => {
+      clearSession();
+      setUser(null);
+      setSettingsOpen(false);
+      setGamesOpen(false);
+      setRewardsOpen(false);
+      setSelectedDay(null);
+    });
   }
+
+  function leaveDemoForSignIn() {
+    trackEvent('live_demo_exit_sign_in')
+    handleSignOut()
+  }
+
+  useEffect(() => {
+    if (!user?.isGuest) return
+    function onPageHide() {
+      beaconEndGuestDemo()
+    }
+    window.addEventListener('pagehide', onPageHide)
+    return () => window.removeEventListener('pagehide', onPageHide)
+  }, [user?.isGuest])
 
   if (authChecking) {
     return (
@@ -619,6 +714,9 @@ function App() {
       <div className="app-bg" aria-hidden="true" />
       <ThemeToggle />
       <main className="shell">
+        {user.isGuest ? (
+          <DemoBanner onSignIn={leaveDemoForSignIn} />
+        ) : null}
         <header className="brand">
           <BrandTypewriter />
           <p className="brand-sub">{brandSub}</p>
@@ -681,9 +779,21 @@ function App() {
           >
             Surjith K
           </a>
-          . All Rights Reserved.
+          . All Rights Reserved.{" "}
+          <button
+            type="button"
+            className="copyright-link tip-jar-link"
+            onClick={() => {
+              trackEvent("open_tip_jar");
+              setTipJarOpen(true);
+            }}
+          >
+            Buy me a coffee
+          </button>
         </p>
       </main>
+
+      <TipJarModal open={tipJarOpen} onClose={() => setTipJarOpen(false)} />
 
       <FinanceFab />
 
@@ -785,6 +895,7 @@ function App() {
         viewYear={year}
         viewMonth={month}
         userEmail={user.email}
+        isGuest={Boolean(user.isGuest)}
         onClose={() => {
           trackEvent("close_settings");
           setSettingsOpen(false);

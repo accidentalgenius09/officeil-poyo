@@ -16,6 +16,8 @@ import {
 } from '../../lib/attendance'
 import {
   clearSession,
+  endGuestDemo,
+  beaconEndGuestDemo,
   fetchAppData,
   fetchMe,
   getStoredToken,
@@ -27,6 +29,7 @@ import { createDebouncedAppPersister } from '../../lib/persistQueue'
 import { exportFinanceMonthCsv } from '../../lib/exportCsv'
 import { AuthScreen } from '../AuthScreen'
 import { AppLoader } from '../common/AppLoader'
+import { DemoBanner } from '../DemoBanner'
 import { ThemeToggle } from '../ThemeToggle'
 import { FinancePieChart } from './FinancePieChart'
 import { ThemedSelect } from './ThemedSelect'
@@ -342,9 +345,26 @@ export function FinancePage() {
   }, [])
 
   useEffect(() => {
+    if (!user?.isGuest) return
+    function onPageHide() {
+      beaconEndGuestDemo()
+    }
+    window.addEventListener('pagehide', onPageHide)
+    return () => window.removeEventListener('pagehide', onPageHide)
+  }, [user?.isGuest])
+
+  useEffect(() => {
     const cats = categoriesForKind(finance, kind)
     setCategory((prev) => (cats.includes(prev) ? prev : cats[0]))
   }, [kind, finance.customCategories.income, finance.customCategories.expense])
+
+  function leaveDemoForSignIn() {
+    trackEvent('live_demo_exit_sign_in')
+    void endGuestDemo().finally(() => {
+      clearSession()
+      setUser(null)
+    })
+  }
 
   function updateFinance(
     updater: (current: ReturnType<typeof getFinance>) => ReturnType<typeof getFinance>,
@@ -905,6 +925,9 @@ export function FinancePage() {
       <div className="app-bg" aria-hidden="true" />
       <ThemeToggle />
       <main className="shell finance-shell">
+        {user.isGuest ? (
+          <DemoBanner onSignIn={leaveDemoForSignIn} />
+        ) : null}
         <header className="finance-header">
           <Link
             to="/"
