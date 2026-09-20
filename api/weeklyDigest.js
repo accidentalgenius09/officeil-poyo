@@ -442,6 +442,55 @@ async function sendBrevoMail({ to, name, subject, text, html }) {
   return body?.messageId || null
 }
 
+export { mailConfigError }
+
+/** Send a sample Monday check-in (or holiday-eve) mail to an arbitrary address. */
+export async function sendSampleDemoEmail({
+  to,
+  name = 'Demo Guest',
+  kind = 'weekly',
+}) {
+  const configError = mailConfigError()
+  if (configError) throw new Error(configError)
+
+  const email = String(to || '')
+    .trim()
+    .toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('Enter a valid email address')
+  }
+
+  if (kind === 'holiday-eve') {
+    const today = zonedToday()
+    const holidayDateKey = nextDateKey(today.dateKey)
+    if (!holidayDateKey) throw new Error('Could not resolve tomorrow’s date')
+    const holidays = [{ name: 'Demo holiday', dateKey: holidayDateKey }]
+    const { text, html } = holidayEveBodies(
+      name,
+      holidays,
+      holidayDateKey,
+      appUrl(),
+    )
+    return sendBrevoMail({
+      to: email,
+      name,
+      subject: `Holiday tomorrow — ${holidays[0].name} (demo)`,
+      text,
+      html,
+    })
+  }
+
+  const digest = {
+    daysLeft: 4,
+    remaining: 8,
+    canHitGoal: true,
+    daysInOffice: 8,
+    goal: 12,
+    message: buildWeeklyDigestMessage(4, 8, true),
+  }
+  return sendDigestEmail({ to: email, name, digest })
+}
+
 async function sendDigestEmail({ to, name, digest }) {
   const url = appUrl()
   const { text, html } = digestBodies(name, digest, url)

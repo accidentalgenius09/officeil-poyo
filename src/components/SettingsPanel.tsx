@@ -20,6 +20,7 @@ import {
 } from '../lib/reminders'
 import { toast } from 'react-hot-toast'
 import { ThemedDatePicker } from './ThemedDatePicker'
+import { sendDemoSampleEmail } from '../lib/api'
 
 type SettingsPanelProps = {
   open: boolean
@@ -28,6 +29,7 @@ type SettingsPanelProps = {
   viewYear: number
   viewMonth: number
   userEmail?: string
+  isGuest?: boolean
   onClose: () => void
   onChange: (next: CalendarSettings) => void
   onSignOut: () => void
@@ -157,6 +159,7 @@ export function SettingsPanel({
   viewYear,
   viewMonth,
   userEmail,
+  isGuest = false,
   onClose,
   onChange,
   onSignOut,
@@ -171,6 +174,8 @@ export function SettingsPanel({
   const [holidayName, setHolidayName] = useState('')
   const [holidayRecurring, setHolidayRecurring] = useState(false)
   const [exportYear, setExportYear] = useState(viewYear)
+  const [demoMail, setDemoMail] = useState('')
+  const [demoMailBusy, setDemoMailBusy] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -307,6 +312,54 @@ export function SettingsPanel({
               trackEvent('toggle_holiday_eve_email', { enabled: next })
             }}
           />
+          {isGuest ? (
+            <div className="settings-demo-mail">
+              <p className="profile-daily-title">Send a sample check-in email</p>
+              <p className="settings-help">
+                Enter any inbox — we’ll send a real Monday check-in sample via
+                Brevo (limited to a few per hour).
+              </p>
+              <label className="settings-span">
+                Email address
+                <input
+                  type="email"
+                  value={demoMail}
+                  onChange={(e) => setDemoMail(e.target.value)}
+                  placeholder="you@company.com"
+                  autoComplete="email"
+                />
+              </label>
+              <button
+                type="button"
+                className="settings-submit"
+                disabled={demoMailBusy}
+                onClick={() => {
+                  void (async () => {
+                    setDemoMailBusy(true)
+                    try {
+                      await sendDemoSampleEmail({
+                        email: demoMail,
+                        kind: 'weekly',
+                        name: profile.name || 'Demo Guest',
+                      })
+                      trackEvent('demo_sample_email', { kind: 'weekly' })
+                      toast.success('Sample check-in email sent')
+                    } catch (err) {
+                      toast.error(
+                        err instanceof Error
+                          ? err.message
+                          : 'Could not send sample email',
+                      )
+                    } finally {
+                      setDemoMailBusy(false)
+                    }
+                  })()
+                }}
+              >
+                {demoMailBusy ? 'Sending…' : 'Send sample check-in email'}
+              </button>
+            </div>
+          ) : null}
           <button
             type="button"
             className="settings-submit settings-danger"
@@ -315,7 +368,7 @@ export function SettingsPanel({
               onSignOut()
             }}
           >
-            Sign out
+            {isGuest ? 'Leave demo' : 'Sign out'}
           </button>
         </section>
 

@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react'
-import { Eye, EyeSlash } from '@phosphor-icons/react'
+import { Eye, EyeSlash, Play } from '@phosphor-icons/react'
 import type { AuthUser } from '../types'
-import { loginAccount, registerAccount } from '../lib/api'
+import { loginAccount, registerAccount, startGuestDemo } from '../lib/api'
 import { trackEvent } from '../lib/analytics'
 import { toast } from 'react-hot-toast'
 
@@ -39,6 +39,23 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
     }
   }
 
+  async function handleLiveDemo() {
+    if (busy) return
+    setBusy(true)
+    try {
+      const result = await startGuestDemo()
+      trackEvent('live_demo_start')
+      toast.success('Live demo ready — explore freely')
+      onAuthenticated(result.user)
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Could not start the live demo',
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="auth-screen">
       <div className="app-bg" aria-hidden="true" />
@@ -50,6 +67,20 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
         <p className="auth-sub">
           Sign in to sync your office visits, leave, and holidays to your own
           cloud data.
+        </p>
+
+        <button
+          type="button"
+          className="auth-live-demo"
+          disabled={busy}
+          onClick={() => void handleLiveDemo()}
+        >
+          <Play size={18} weight="fill" aria-hidden />
+          {busy ? 'Starting demo…' : 'Live demo'}
+        </button>
+        <p className="auth-live-demo-note">
+          Try every feature with sample data. The session is erased when you
+          leave.
         </p>
 
         <div className="auth-tabs" role="tablist">
